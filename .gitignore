@@ -32,4 +32,8 @@ go.work.sum
 # .vscode/
 node_modules/
 .next/
-
+.turbo/
+dist/
+*.tsbuildinfo
+.env.local
+/apps/api/prisma/migrations/**/migration.sql.bak
