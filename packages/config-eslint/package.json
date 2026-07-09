@@ -1,6 +1,10 @@
 {
-  "name": "@campus/config-eslint",
+  "name": "@campus/eslint-config",
   "version": "0.1.0",
   "private": true,
-  "main": "index.js"
+  "main": "index.js",
+  "dependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0"
+  }
 }

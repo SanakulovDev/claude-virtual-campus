@@ -1,0 +1,4 @@
+
+> @campus/event-normalizer@0.1.0 build /Users/sanakulov/Developer/claude-virtual-campus/packages/event-normalizer
+> tsc -p tsconfig.json --declaration
+

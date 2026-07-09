@@ -1,0 +1,4 @@
+
+> @campus/api@0.1.0 lint /Users/sanakulov/Developer/claude-virtual-campus/apps/api
+> eslint src --ext .ts
+

@@ -1,0 +1,4 @@
+
+> @campus/contracts@0.1.0 typecheck /Users/sanakulov/Developer/claude-virtual-campus/packages/contracts
+> tsc --noEmit
+

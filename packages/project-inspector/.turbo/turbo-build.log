@@ -1,0 +1,4 @@
+
+> @campus/project-inspector@0.1.0 build /Users/sanakulov/Developer/claude-virtual-campus/packages/project-inspector
+> tsc -p tsconfig.json --declaration
+

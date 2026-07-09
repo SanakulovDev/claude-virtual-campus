@@ -3,7 +3,7 @@ import type { ResolvedProject } from '@campus/contracts';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectResolverService } from '../project-resolver/project-resolver.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
-import { SOCKET_EVENTS, projectRoom } from '@campus/contracts';
+import { SOCKET_EVENTS } from '@campus/contracts';
 import { calculateRoomPosition, calculateRoomTemplate } from './room-layout';
 
 @Injectable()

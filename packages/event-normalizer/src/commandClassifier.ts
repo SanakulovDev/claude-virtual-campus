@@ -31,7 +31,7 @@ interface Rule {
 
 const RULES: Rule[] = [
   // test
-  { category: 'test', match: (exe, rest) => ['phpunit', 'pest', 'pytest', 'vitest', 'jest', 'mocha', 'rspec'].includes(exe) },
+  { category: 'test', match: (exe) => ['phpunit', 'pest', 'pytest', 'vitest', 'jest', 'mocha', 'rspec'].includes(exe) },
   { category: 'test', match: (exe, rest) => exe === 'php' && rest[0] === 'artisan' && rest[1] === 'test' },
   { category: 'test', match: (exe, rest) => (exe === 'python' || exe === 'python3') && rest.includes('pytest') },
   { category: 'test', match: (exe, rest) => ['go', 'cargo', 'mvn', 'gradle', 'gradlew', 'dotnet', 'make'].includes(exe) && rest[0] === 'test' },

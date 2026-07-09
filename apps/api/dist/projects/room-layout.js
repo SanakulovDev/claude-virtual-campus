@@ -1,17 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.calculateRoomPosition = calculateRoomPosition;
+exports.calculateRoomPosition = void 0;
 exports.calculateRoomTemplate = calculateRoomTemplate;
-const COLUMNS = 3;
-const SPACING_X = 22;
-const SPACING_Z = 18;
-/** Deterministic grid position for a project room, per spec section 20. */
-function calculateRoomPosition(index) {
-    return {
-        x: (index % COLUMNS) * SPACING_X,
-        z: Math.floor(index / COLUMNS) * SPACING_Z,
-    };
-}
+var contracts_1 = require("@campus/contracts");
+Object.defineProperty(exports, "calculateRoomPosition", { enumerable: true, get: function () { return contracts_1.calculateRoomPosition; } });
 function calculateRoomTemplate(agentCount) {
     if (agentCount >= 9)
         return 'LARGE';

@@ -1,0 +1,5 @@
+{
+  "root": true,
+  "extends": ["@campus/eslint-config"],
+  "parserOptions": { "ecmaVersion": 2022, "sourceType": "module" }
+}

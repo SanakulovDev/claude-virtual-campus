@@ -39,6 +39,8 @@
     "typescript": "^5.7.0",
     "vitest": "^2.1.0",
     "unplugin-swc": "^1.5.0",
-    "@swc/core": "^1.9.0"
+    "@swc/core": "^1.9.0",
+    "@campus/eslint-config": "workspace:*",
+    "eslint": "^8.57.0"
   }
 }
