@@ -1,0 +1,234 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoomTemplate {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+model Project {
+  id             String    @id @default(cuid())
+  projectKey     String    @unique
+  name           String
+  rootPath       String
+  remoteUrl      String?
+  isGitRepository Boolean  @default(false)
+  roomTemplate   RoomTemplate @default(SMALL)
+  roomPositionX  Int       @default(0)
+  roomPositionZ  Int       @default(0)
+  createdAt      DateTime  @default(now())
+  lastActiveAt   DateTime  @default(now())
+
+  modules      ProjectModule[]
+  technologies ProjectTechnology[]
+  sessions     ClaudeSession[]
+  agents       ProjectAgent[]
+  tasks        Task[]
+  events       ClaudeEvent[]
+  toolExecutions ToolExecution[]
+  approvals    ApprovalRequest[]
+  snapshots    ActivitySnapshot[]
+}
+
+model ProjectModule {
+  id                String   @id @default(cuid())
+  projectId         String
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name              String
+  relativePath      String
+  primaryLanguage   String?
+  technologyProfile Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  sessions ClaudeSession[]
+  events   ClaudeEvent[]
+  toolExecutions ToolExecution[]
+
+  @@unique([projectId, relativePath])
+}
+
+model ProjectTechnology {
+  id           String   @id @default(cuid())
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  techId       String
+  displayName  String
+  category     String
+  confidence   Float
+  evidence     Json
+  detectedAt   DateTime @default(now())
+
+  @@unique([projectId, techId])
+}
+
+enum SessionStatus {
+  ACTIVE
+  DISCONNECTED
+  ENDED
+}
+
+model ClaudeSession {
+  id                String        @id @default(cuid())
+  externalSessionId String        @unique
+  projectId         String
+  project           Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectModuleId   String?
+  projectModule     ProjectModule? @relation(fields: [projectModuleId], references: [id])
+  cwd               String
+  branch            String?
+  worktreePath      String?
+  status            SessionStatus @default(ACTIVE)
+  startedAt         DateTime      @default(now())
+  endedAt           DateTime?
+  lastEventAt       DateTime      @default(now())
+
+  agents ProjectAgent[]
+  tasks  Task[]
+  events ClaudeEvent[]
+  toolExecutions ToolExecution[]
+}
+
+model AgentDefinition {
+  id          String @id @default(cuid())
+  agentType   String @unique
+  displayName String
+  role        String?
+}
+
+model ProjectAgent {
+  id               String    @id @default(cuid())
+  projectId        String
+  project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  externalAgentId  String?
+  agentType        String
+  displayName      String
+  role             String?
+  status           String    @default("idle")
+  activity         String    @default("idle")
+  assignedDeskKey  String?
+  currentZoneKey   String    @default("entrance")
+  currentTaskId    String?
+  currentSessionId String?
+  session          ClaudeSession? @relation(fields: [currentSessionId], references: [id])
+  avatarVariant    Int       @default(0)
+  lastSeenAt       DateTime  @default(now())
+
+  taskAssignments TaskAssignment[]
+  toolExecutions  ToolExecution[]
+  events          ClaudeEvent[]
+
+  @@unique([projectId, externalAgentId])
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sessionId   String?
+  session     ClaudeSession? @relation(fields: [sessionId], references: [id])
+  title       String
+  status      TaskStatus @default(PENDING)
+  createdAt   DateTime   @default(now())
+  completedAt DateTime?
+
+  assignments TaskAssignment[]
+}
+
+model TaskAssignment {
+  id        String       @id @default(cuid())
+  taskId    String
+  task      Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  agentId   String
+  agent     ProjectAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  assignedAt DateTime    @default(now())
+}
+
+model ClaudeEvent {
+  id              String   @id @default(cuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectModuleId String?
+  projectModule   ProjectModule? @relation(fields: [projectModuleId], references: [id])
+  sessionId       String
+  session         ClaudeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  agentId         String
+  agent           ProjectAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  hookEventName   String
+  toolName        String?
+  normalizedType  String
+  payload         Json
+  occurredAt      DateTime
+  receivedAt      DateTime @default(now())
+  sequenceNumber  Int      @default(autoincrement())
+}
+
+enum ToolExecutionStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model ToolExecution {
+  id              String   @id @default(cuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectModuleId String?
+  projectModule   ProjectModule? @relation(fields: [projectModuleId], references: [id])
+  sessionId       String
+  session         ClaudeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  agentId         String
+  agent           ProjectAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  toolName        String
+  commandCategory String?
+  fileCategory    String?
+  status          ToolExecutionStatus @default(RUNNING)
+  safeSummary     String
+  inputMetadata   Json?
+  outputMetadata  Json?
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+}
+
+enum ApprovalStatus {
+  PENDING
+  ALLOWED
+  DENIED
+  TIMED_OUT
+}
+
+model ApprovalRequest {
+  id            String         @id @default(cuid())
+  projectId     String
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sessionExternalId String
+  toolName      String
+  safeSummary   String
+  commandCategory String?
+  status        ApprovalStatus @default(PENDING)
+  requestedAt   DateTime       @default(now())
+  resolvedAt    DateTime?
+  timeoutAt     DateTime
+}
+
+model ActivitySnapshot {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  summary   Json
+  createdAt DateTime @default(now())
+}

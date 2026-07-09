@@ -1,0 +1,32 @@
+{
+  "name": "claude-virtual-campus",
+  "private": true,
+  "version": "0.1.0",
+  "engines": { "node": ">=20" },
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "tsx scripts/e2e-smoke.ts",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @campus/api exec prisma migrate deploy",
+    "db:seed": "pnpm --filter @campus/api exec prisma db seed",
+    "demo:events": "tsx scripts/demo-events.ts all",
+    "demo:php": "tsx scripts/demo-events.ts php",
+    "demo:python": "tsx scripts/demo-events.ts python",
+    "demo:go": "tsx scripts/demo-events.ts go",
+    "campus:install": "tsx packages/claude-plugin/installer/install.ts",
+    "campus:uninstall": "tsx packages/claude-plugin/installer/uninstall.ts"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.4.0"
+  }
+}

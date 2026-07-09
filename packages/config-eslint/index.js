@@ -1,0 +1,10 @@
+/** @type {import('eslint').Linter.Config} */
+module.exports = {
+  root: false,
+  env: { es2022: true, node: true },
+  parserOptions: { ecmaVersion: 2022, sourceType: "module" },
+  extends: ["eslint:recommended"],
+  rules: {
+    "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+  },
+};
