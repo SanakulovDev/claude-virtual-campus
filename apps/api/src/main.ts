@@ -1,4 +1,12 @@
 import 'reflect-metadata';
+import path from 'node:path';
+import dotenv from 'dotenv';
+
+// `nest start` runs with cwd apps/api, and `node dist/main.js` may run from anywhere --
+// load the monorepo-root .env explicitly instead of relying on cwd-relative discovery.
+// Never overrides variables already set in the real environment (dotenv default).
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { SessionsService } from './sessions/sessions.service';
