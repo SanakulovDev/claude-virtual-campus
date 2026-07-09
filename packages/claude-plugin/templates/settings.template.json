@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": ".claude/hooks/send-event.sh" }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": ".claude/hooks/send-event.sh" }] }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": ".claude/hooks/send-event.sh" },
+          { "type": "command", "command": ".claude/hooks/request-approval.sh" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": ".claude/hooks/send-event.sh" }] }
+    ],
+    "Notification": [
+      { "hooks": [{ "type": "command", "command": ".claude/hooks/send-event.sh" }] }
+    ],
+    "PreCompact": [
+      { "hooks": [{ "type": "command", "command": ".claude/hooks/send-event.sh" }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": ".claude/hooks/send-event.sh" }] }
+    ],
+    "SubagentStop": [
+      { "hooks": [{ "type": "command", "command": ".claude/hooks/send-event.sh" }] }
+    ],
+    "SessionEnd": [
+      { "hooks": [{ "type": "command", "command": ".claude/hooks/send-event.sh" }] }
+    ]
+  }
+}
