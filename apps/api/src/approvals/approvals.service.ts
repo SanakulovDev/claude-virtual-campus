@@ -7,8 +7,11 @@ import { ProjectsService } from '../projects/projects.service';
 import { CommandClassificationService } from '../commands/command-classification.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 
-const DEFAULT_TIMEOUT_MS = Number(process.env.APPROVAL_TIMEOUT_MS ?? 30_000);
 const POLL_INTERVAL_MS = 400;
+
+function readTimeoutMs(): number {
+  return Number(process.env.APPROVAL_TIMEOUT_MS ?? 30_000);
+}
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -42,7 +45,7 @@ export class ApprovalsService {
     const resolved = await this.resolver.resolve(body.cwd);
     const project = await this.projects.upsertFromResolvedProject(resolved);
 
-    const timeoutAt = new Date(Date.now() + DEFAULT_TIMEOUT_MS);
+    const timeoutAt = new Date(Date.now() + readTimeoutMs());
     const request = await this.prisma.approvalRequest.create({
       data: {
         projectId: project.id,
