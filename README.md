@@ -97,7 +97,28 @@ pnpm lint          # eslint across all workspaces
 pnpm typecheck     # tsc --noEmit across all workspaces
 pnpm test          # unit + integration tests across all workspaces
 pnpm test:e2e      # full-stack smoke test (starts its own db/api/web)
+pnpm test:redesign # headless-browser smoke: drives the UI, writes artifacts/redesign/*.png
 ```
+
+### The campus at a glance
+
+The 3D world shows open **project studios** ringed around a central hub. Each studio has
+one planning table, agent desks (the monitor tint shows the work kind), one shared review
+screen and a status wall — not a station per backend event. Detailed backend activity is
+mapped on the frontend (`apps/web/selectors/`) into five visual states so agents move on
+meaningful phase changes rather than on every tool call:
+
+| Visual state | Backend activity (examples) | Where the agent goes |
+|---|---|---|
+| Planning | UserPromptSubmit, planning, meeting | planning table |
+| Working | Read/Grep/Edit/Write, generic commands, db/infra edits | assigned desk |
+| Checking | test, build, lint, typecheck, review | shared review screen |
+| Attention | permission request, blocked, tool failure | pauses in place + beacon |
+| Completed | task complete / successful stop | desk (brief celebrate) → idle |
+
+The full per-event detail (tools, files, commands, ids, classifier output) stays in the
+collapsible inspector drawer's **Developer details** section. Run `pnpm demo:attention`
+for the permission/approval demonstration.
 
 Startup output:
 
