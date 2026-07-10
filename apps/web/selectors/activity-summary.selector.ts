@@ -76,6 +76,7 @@ const NORMALIZED_TYPE_SUMMARY: Record<string, string> = {
 
 /** Human-readable label for a timeline row, from its normalized type (never raw payload). */
 export function summarizeTimelineEntry(entry: TimelineEntry): string {
+  if (!entry.normalizedType) return 'Activity';
   const base = NORMALIZED_TYPE_SUMMARY[entry.normalizedType] ?? entry.normalizedType.replace(/_/g, ' ');
   if (entry.toolName && ['file_read', 'file_edit', 'command_run', 'tool_use'].includes(entry.normalizedType)) {
     return `${base} · ${entry.toolName}`;

@@ -23,8 +23,9 @@ export function CampusTopBar() {
   const toggleDock = useCampusStore((s) => s.toggleDock);
 
   const list = Object.values(projects);
-  const activeProjects = list.filter((p) => selectProjectVisualState(p.agents) !== 'idle').length;
-  const activeAgents = list.flatMap((p) => p.agents).filter((a) => a.status === 'active').length;
+  const totalProjects = list.length;
+  const totalAgents = list.reduce((sum, p) => sum + p.agents.length, 0);
+  const activeAgents = list.flatMap((p) => p.agents).filter((a) => selectProjectVisualState([a]) !== 'idle').length;
   const pending = Object.values(approvals).filter((a) => a.status === 'PENDING').length;
 
   return (
@@ -47,8 +48,8 @@ export function CampusTopBar() {
       </div>
 
       <div className="flex items-center gap-5">
-        <Stat label="projects" value={activeProjects} />
-        <Stat label="agents" value={activeAgents} />
+        <Stat label="projects" value={totalProjects} />
+        <Stat label={activeAgents > 0 ? 'active' : 'agents'} value={activeAgents > 0 ? activeAgents : totalAgents} />
         {pending > 0 && (
           <div className="flex items-center gap-1.5 rounded-full bg-rose-500/15 px-2.5 py-1">
             <span className="text-sm font-semibold text-rose-300 tabular-nums">{pending}</span>

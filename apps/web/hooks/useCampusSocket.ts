@@ -19,10 +19,17 @@ export function useCampusSocket() {
   useEffect(() => {
     const socket = getSocket();
 
+    // agent-state, tool and approval events are broadcast to per-project rooms, so we must
+    // join every project's room (not just the campus room) to receive live updates.
+    function joinProject(projectId: string) {
+      socket.emit('join:project', projectId);
+    }
+
     async function loadBootstrap() {
       const res = await fetch(apiUrl('/api/campus/bootstrap'));
       const data = (await res.json()) as { projects: ProjectRow[]; recentEvents: TimelineEntry[] };
       bootstrapCampus(data.projects, data.recentEvents);
+      data.projects.forEach((p) => joinProject(p.id));
     }
 
     function onConnect() {
@@ -34,11 +41,15 @@ export function useCampusSocket() {
     }
     function onProjectUpsert(project: ProjectRow) {
       upsertProject(project);
+      joinProject(project.id);
     }
     function onAgentChanged(agent: AgentRow) {
       upsertAgent(agent.id, agent.projectId, agent);
     }
     function onEventReceived(entry: TimelineEntry) {
+      // the backend also broadcasts a campus-level {type, projectId} signal on the same
+      // channel; ignore anything that isn't a real normalized event row.
+      if (!entry || typeof entry.id !== 'string' || typeof entry.normalizedType !== 'string') return;
       addTimelineEvent(entry);
     }
     function onApprovalRequested(approval: ApprovalRow) {

@@ -37,3 +37,6 @@ dist/
 *.tsbuildinfo
 .env.local
 /apps/api/prisma/migrations/**/migration.sql.bak
+
+# transient browser-smoke diagnostics
+artifacts/redesign/failure.png

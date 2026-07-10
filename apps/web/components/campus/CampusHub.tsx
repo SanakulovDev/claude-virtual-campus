@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import { RoundedBox, Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import type * as THREE from 'three';
-import { PALETTE } from '../../lib/theme';
+import { HTML_Z_RANGE, PALETTE } from '../../lib/theme';
 
 function Tree({ position }: { position: [number, number, number] }) {
   return (
@@ -58,7 +58,7 @@ export function CampusHub() {
         <meshStandardMaterial color="#8fa0b8" roughness={0.4} metalness={0.15} flatShading />
       </mesh>
 
-      <Html position={[0, 4.4, 0]} center distanceFactor={40} pointerEvents="none">
+      <Html position={[0, 4.4, 0]} center distanceFactor={40} pointerEvents="none" zIndexRange={HTML_Z_RANGE}>
         <div
           style={{
             padding: '4px 12px',

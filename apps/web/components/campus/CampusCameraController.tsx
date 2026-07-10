@@ -68,11 +68,6 @@ export function CampusCameraController() {
   }, []);
 
   function computeShot(): Shot {
-    const count = Math.max(projectList.length, 1);
-    // overview framing adapts to how far the outermost ring reaches
-    const maxRing = calculateStudioPlacement(count - 1).ring;
-    const reach = 30 + maxRing * 26 + 30;
-
     if (cameraState.mode === 'follow' && cameraState.followedAgentId) {
       const pos = agentWorldPosition(projectList, cameraState.followedAgentId);
       if (pos) {
@@ -90,15 +85,25 @@ export function CampusCameraController() {
       const index = projectIds.indexOf(cameraState.focusedProjectId);
       if (index >= 0) {
         const { center, outward } = studioWorldCenter(index);
-        const cam = center.clone().add(outward.clone().multiplyScalar(22)).add(new THREE.Vector3(0, 15, 0));
-        return { sig: `room:${cameraState.focusedProjectId}`, camera: cam, target: center };
+        const cam = center.clone().add(outward.clone().multiplyScalar(17)).add(new THREE.Vector3(0, 12, 0));
+        return { sig: `room:${cameraState.focusedProjectId}`, camera: cam, target: center.clone().setY(1.2) };
       }
     }
 
+    // overview: frame the centroid of the hub + all studios so the campus stays centred
+    // no matter how few studios there are or which wedge they occupy.
+    const points = [new THREE.Vector3(0, 0, 0)];
+    for (let i = 0; i < projectList.length; i += 1) {
+      const p = calculateStudioPlacement(i).position;
+      points.push(new THREE.Vector3(p[0], 0, p[2]));
+    }
+    const centroid = points.reduce((acc, p) => acc.add(p), new THREE.Vector3()).multiplyScalar(1 / points.length);
+    const radius = Math.max(20, ...points.map((p) => p.distanceTo(centroid))) + 16;
+    const dist = radius * 1.9 + 18;
     return {
       sig: 'overview',
-      camera: new THREE.Vector3(reach * 0.05, reach * 0.95, reach * 1.15),
-      target: new THREE.Vector3(0, 0, 0),
+      camera: centroid.clone().add(new THREE.Vector3(dist * 0.05, dist * 0.9, dist)),
+      target: centroid.clone(),
     };
   }
 

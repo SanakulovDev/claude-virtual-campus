@@ -1,6 +1,7 @@
 'use client';
 
 import { Html } from '@react-three/drei';
+import { HTML_Z_RANGE } from '../../lib/theme';
 import { STUDIO_ANCHORS } from '../../selectors/studio-layout';
 
 /** Floating project name over the studio. Name + accent dot only -- no path / remote / ids. */
@@ -17,7 +18,7 @@ export function StudioSign({
 }) {
   const [sx, sy, sz] = STUDIO_ANCHORS.sign;
   return (
-    <Html position={[sx, sy + 1.4, sz]} center distanceFactor={26}>
+    <Html position={[sx, sy + 1.4, sz]} center distanceFactor={26} zIndexRange={HTML_Z_RANGE}>
       <button
         onClick={(e) => {
           e.stopPropagation();

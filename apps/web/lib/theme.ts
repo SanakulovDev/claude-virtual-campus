@@ -51,6 +51,10 @@ export const STATE_ICON: Record<SimplifiedAgentVisualState, string> = {
   completed: '✓',
 };
 
+/** drei <Html> defaults to a near-max z-index, which floats 3D labels over the HTML UI
+ * chrome. Cap all in-scene labels below the drawers (z-20/30) and dock so panels win. */
+export const HTML_Z_RANGE: [number, number] = [15, 0];
+
 /** Deterministic accent hue for a project, from its stable key. */
 export function projectAccent(projectKey: string): string {
   let hash = 0;

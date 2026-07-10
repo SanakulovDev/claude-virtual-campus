@@ -1,7 +1,7 @@
 'use client';
 
 import { RoundedBox, Html } from '@react-three/drei';
-import { PALETTE, STATE_COLOR } from '../../lib/theme';
+import { HTML_Z_RANGE, PALETTE, STATE_COLOR } from '../../lib/theme';
 import { STUDIO_ANCHORS, STUDIO_HALF_WIDTH } from '../../selectors/studio-layout';
 
 /** One shared review/checking screen for the whole studio. Test/build/lint/review status
@@ -24,7 +24,7 @@ export function ReviewScreen({ checking, summary }: { checking: boolean; summary
         <meshStandardMaterial color={color} emissive={color} emissiveIntensity={checking ? 0.5 : 0.15} />
       </mesh>
       {checking && (
-        <Html position={[0, 2.4, 0.2]} center distanceFactor={20} pointerEvents="none">
+        <Html position={[0, 2.4, 0.2]} center distanceFactor={20} pointerEvents="none" zIndexRange={HTML_Z_RANGE}>
           <div style={{ color: '#0d1013', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>{summary || 'Checking…'}</div>
         </Html>
       )}

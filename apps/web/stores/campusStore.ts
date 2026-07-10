@@ -74,7 +74,19 @@ export const useCampusStore = create<CampusStoreState>((set) => ({
     })),
 
   upsertProject: (project) =>
-    set((state) => ({ projects: { ...state.projects, [project.id]: project } })),
+    set((state) => {
+      // Live project:created/updated events carry a bare row with no relation arrays.
+      // Merge so an update never wipes the agents/technologies/modules we already have.
+      const existing = state.projects[project.id];
+      const merged: ProjectRow = {
+        ...existing,
+        ...project,
+        agents: project.agents ?? existing?.agents ?? [],
+        technologies: project.technologies ?? existing?.technologies ?? [],
+        modules: project.modules ?? existing?.modules ?? [],
+      };
+      return { projects: { ...state.projects, [project.id]: merged } };
+    }),
 
   upsertAgent: (agentId, projectId, patch) =>
     set((state) => {

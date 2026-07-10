@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import { RoundedBox, Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import type * as THREE from 'three';
-import { PALETTE, STATE_COLOR, STATE_ICON, STATE_LABEL } from '../../lib/theme';
+import { HTML_Z_RANGE, PALETTE, STATE_COLOR, STATE_ICON, STATE_LABEL } from '../../lib/theme';
 import { STUDIO_ANCHORS, STUDIO_HALF_WIDTH } from '../../selectors/studio-layout';
 import type { ProjectVisualState } from '../../selectors/project-status.selector';
 
@@ -34,7 +34,7 @@ export function StatusWall({ state, summary }: { state: ProjectVisualState; summ
         <meshStandardMaterial ref={beaconRef} color={color} emissive={color} emissiveIntensity={0.5} />
       </mesh>
 
-      <Html position={[0, 2.6, 0.3]} center distanceFactor={22} pointerEvents="none">
+      <Html position={[0, 2.6, 0.3]} center distanceFactor={22} pointerEvents="none" zIndexRange={HTML_Z_RANGE}>
         <div
           style={{
             display: 'flex',

@@ -1,7 +1,7 @@
 'use client';
 
 import { Html } from '@react-three/drei';
-import { STATE_COLOR, STATE_LABEL } from '../../lib/theme';
+import { HTML_Z_RANGE, STATE_COLOR, STATE_LABEL } from '../../lib/theme';
 import type { SimplifiedAgentVisualState } from '../../selectors/visual-state.selector';
 
 /** Minimal floating label: agent name + short state only. Full detail lives in the drawer. */
@@ -15,7 +15,7 @@ export function AgentLabel({
   selected: boolean;
 }) {
   return (
-    <Html position={[0, 2.35, 0]} center distanceFactor={16} pointerEvents="none">
+    <Html position={[0, 2.35, 0]} center distanceFactor={16} pointerEvents="none" zIndexRange={HTML_Z_RANGE}>
       <div
         style={{
           display: 'flex',
