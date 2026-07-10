@@ -22,9 +22,12 @@ async function bootstrap() {
   await app.get(SessionsService).markStaleSessionsDisconnected();
 
   const port = Number(process.env.API_PORT ?? 4000);
-  await app.listen(port, '127.0.0.1');
+  // Local default stays 127.0.0.1 (security); containers set API_HOST=0.0.0.0 so the
+  // published port is reachable from the host.
+  const host = process.env.API_HOST ?? '127.0.0.1';
+  await app.listen(port, host);
   // eslint-disable-next-line no-console
-  console.log(`API listening on http://localhost:${port}`);
+  console.log(`API listening on http://${host}:${port}`);
 }
 
 bootstrap();

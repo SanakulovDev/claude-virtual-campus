@@ -51,6 +51,23 @@ pnpm db:migrate     # apply migrations
 pnpm db:reset       # wipe the dev campus to empty
 ```
 
+## Run the whole stack in Docker
+
+To run the campus without keeping `pnpm dev` open:
+
+```bash
+docker compose up -d --build   # postgres + api + web
+docker compose logs -f         # follow logs
+docker compose down            # stop
+```
+
+The API container runs `prisma migrate deploy` on start and binds `0.0.0.0` (via
+`API_HOST`) so its published port is reachable; the local `pnpm dev` path keeps the secure
+`127.0.0.1` default. All services use `restart: unless-stopped`, so the campus returns after
+a reboot. Rebuild with `docker compose up -d --build` after changing the source.
+
+`pnpm db:up` still starts only Postgres, for the `pnpm dev` workflow.
+
 ## Demo mode
 
 ```bash

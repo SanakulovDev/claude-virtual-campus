@@ -79,6 +79,32 @@ pnpm dev
 `pnpm dev` runs both apps and must stay running. Requirements: Node.js ≥ 20 and Docker
 (for Postgres). More in [docs/development.md](docs/development.md).
 
+## Run with Docker (no `pnpm dev`)
+
+To keep the campus running in the background without a dev server, run the whole stack —
+Postgres, API and web — in containers:
+
+```bash
+docker compose up -d --build
+```
+
+- Web: **http://localhost:3100**
+- API: **http://localhost:4000**
+
+The API container applies database migrations on start, and all three services use
+`restart: unless-stopped`, so the campus comes back automatically after a reboot. Manage it
+with the usual commands:
+
+```bash
+docker compose ps          # status
+docker compose logs -f     # follow logs
+docker compose down        # stop everything
+docker compose up -d --build   # rebuild after you change the source
+```
+
+You still connect projects the same way (`pnpm campus:install …`); the hooks reach the API
+at `http://localhost:4000`.
+
 ## Connect a project
 
 The same command works for every language:
