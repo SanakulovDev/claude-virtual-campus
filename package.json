@@ -19,6 +19,7 @@
     "demo:php": "tsx scripts/demo-events.ts php",
     "demo:python": "tsx scripts/demo-events.ts python",
     "demo:go": "tsx scripts/demo-events.ts go",
+    "demo:attention": "tsx scripts/demo-events.ts attention",
     "campus:install": "tsx packages/claude-plugin/installer/install.ts",
     "campus:uninstall": "tsx packages/claude-plugin/installer/uninstall.ts"
   },

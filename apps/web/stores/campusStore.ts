@@ -14,6 +14,13 @@ interface SelectionState {
   selectedAgentId: string | null;
 }
 
+interface UiState {
+  dockCollapsed: boolean;
+  inspectorOpen: boolean;
+  timelineExpanded: boolean;
+  developerDetails: boolean;
+}
+
 interface CampusStoreState {
   connectionStatus: 'connecting' | 'connected' | 'disconnected';
   projects: Record<string, ProjectRow>;
@@ -21,6 +28,7 @@ interface CampusStoreState {
   timeline: TimelineEntry[];
   camera: CameraState;
   selection: SelectionState;
+  ui: UiState;
 
   setConnectionStatus: (status: CampusStoreState['connectionStatus']) => void;
   bootstrapCampus: (projects: ProjectRow[], recentEvents: TimelineEntry[]) => void;
@@ -35,6 +43,17 @@ interface CampusStoreState {
   followAgent: (agentId: string) => void;
   stopFollowingAgent: () => void;
   returnToCampus: () => void;
+  closeInspector: () => void;
+  toggleDock: () => void;
+  toggleTimelineExpanded: () => void;
+  toggleDeveloperDetails: () => void;
+}
+
+function projectIdForAgent(projects: Record<string, ProjectRow>, agentId: string): string | null {
+  for (const project of Object.values(projects)) {
+    if (project.agents.some((a) => a.id === agentId)) return project.id;
+  }
+  return null;
 }
 
 export const useCampusStore = create<CampusStoreState>((set) => ({
@@ -44,6 +63,7 @@ export const useCampusStore = create<CampusStoreState>((set) => ({
   timeline: [],
   camera: { mode: 'campus', focusedProjectId: null, followedAgentId: null },
   selection: { selectedProjectId: null, selectedAgentId: null },
+  ui: { dockCollapsed: false, inspectorOpen: false, timelineExpanded: false, developerDetails: false },
 
   setConnectionStatus: (status) => set({ connectionStatus: status }),
 
@@ -82,8 +102,23 @@ export const useCampusStore = create<CampusStoreState>((set) => ({
       return { approvals: { ...state.approvals, [approvalId]: { ...existing, status } } };
     }),
 
-  selectProject: (projectId) => set((state) => ({ selection: { ...state.selection, selectedProjectId: projectId } })),
-  selectAgent: (agentId) => set((state) => ({ selection: { ...state.selection, selectedAgentId: agentId } })),
+  selectProject: (projectId) =>
+    set((state) => ({
+      selection: { selectedProjectId: projectId, selectedAgentId: null },
+      ui: { ...state.ui, inspectorOpen: projectId != null },
+    })),
+
+  selectAgent: (agentId) =>
+    set((state) => {
+      if (agentId == null) {
+        return { selection: { ...state.selection, selectedAgentId: null } };
+      }
+      const projectId = projectIdForAgent(state.projects, agentId) ?? state.selection.selectedProjectId;
+      return {
+        selection: { selectedProjectId: projectId, selectedAgentId: agentId },
+        ui: { ...state.ui, inspectorOpen: true },
+      };
+    }),
 
   focusProjectRoom: (projectId) =>
     set({ camera: { mode: 'room', focusedProjectId: projectId, followedAgentId: null } }),
@@ -94,5 +129,20 @@ export const useCampusStore = create<CampusStoreState>((set) => ({
   stopFollowingAgent: () =>
     set((state) => ({ camera: { ...state.camera, mode: 'room', followedAgentId: null } })),
 
-  returnToCampus: () => set({ camera: { mode: 'campus', focusedProjectId: null, followedAgentId: null } }),
+  returnToCampus: () =>
+    set((state) => ({
+      camera: { mode: 'campus', focusedProjectId: null, followedAgentId: null },
+      selection: { selectedProjectId: null, selectedAgentId: null },
+      ui: { ...state.ui, inspectorOpen: false },
+    })),
+
+  closeInspector: () =>
+    set((state) => ({
+      selection: { selectedProjectId: null, selectedAgentId: null },
+      ui: { ...state.ui, inspectorOpen: false },
+    })),
+
+  toggleDock: () => set((state) => ({ ui: { ...state.ui, dockCollapsed: !state.ui.dockCollapsed } })),
+  toggleTimelineExpanded: () => set((state) => ({ ui: { ...state.ui, timelineExpanded: !state.ui.timelineExpanded } })),
+  toggleDeveloperDetails: () => set((state) => ({ ui: { ...state.ui, developerDetails: !state.ui.developerDetails } })),
 }));

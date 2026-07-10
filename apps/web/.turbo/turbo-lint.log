@@ -1,4 +1,0 @@
-
-> @campus/web@0.1.0 lint /Users/sanakulov/Developer/claude-virtual-campus/apps/web
-> eslint . --ext .ts,.tsx
-

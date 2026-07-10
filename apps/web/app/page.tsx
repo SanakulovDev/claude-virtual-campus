@@ -1,41 +1,48 @@
 'use client';
 
+import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useCampusSocket } from '../hooks/useCampusSocket';
-import { HeaderBar } from '../components/panels/HeaderBar';
-import { InspectorPanel } from '../components/panels/InspectorPanel';
-import { TimelinePanel } from '../components/panels/TimelinePanel';
-import { ApprovalPanel } from '../components/panels/ApprovalPanel';
-import { ProjectListPanel } from '../components/panels/ProjectListPanel';
+import { CampusTopBar } from '../components/ui/CampusTopBar';
+import { ProjectDock } from '../components/ui/ProjectDock';
+import { InspectorDrawer } from '../components/ui/InspectorDrawer';
+import { ContextTimeline } from '../components/ui/ContextTimeline';
+import { ApprovalDrawer } from '../components/ui/ApprovalDrawer';
+import { useCampusStore } from '../stores/campusStore';
 
 const CampusScene = dynamic(() => import('../components/campus/CampusScene').then((m) => m.CampusScene), {
   ssr: false,
+  loading: () => <div className="grid h-full place-items-center text-sm text-slate-500">Loading campus…</div>,
 });
 
 export default function Page() {
   useCampusSocket();
+  const closeInspector = useCampusStore((s) => s.closeInspector);
+  const stopFollowing = useCampusStore((s) => s.stopFollowingAgent);
+  const cameraMode = useCampusStore((s) => s.camera.mode);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return;
+      if (cameraMode === 'follow') stopFollowing();
+      closeInspector();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [cameraMode, closeInspector, stopFollowing]);
 
   return (
-    <div className="flex h-screen flex-col">
-      <HeaderBar />
+    <div className="flex h-screen flex-col bg-slate-950">
+      <CampusTopBar />
       <div className="flex min-h-0 flex-1">
-        <div className="relative min-w-0 flex-1">
+        <ProjectDock />
+        <main className="relative min-w-0 flex-1" data-testid="campus-canvas">
           <CampusScene />
-          <ApprovalPanel />
-        </div>
-        <aside className="flex w-80 flex-none flex-col border-l border-slate-800 bg-slate-950">
-          <div className="border-b border-slate-800">
-            <div className="px-3 py-2 text-xs uppercase tracking-wide text-slate-400">Projects</div>
-            <ProjectListPanel />
-          </div>
-          <div className="min-h-0 flex-1">
-            <InspectorPanel />
-          </div>
-        </aside>
+          <InspectorDrawer />
+          <ApprovalDrawer />
+        </main>
       </div>
-      <div className="h-10 flex-none">
-        <TimelinePanel />
-      </div>
+      <ContextTimeline />
     </div>
   );
 }

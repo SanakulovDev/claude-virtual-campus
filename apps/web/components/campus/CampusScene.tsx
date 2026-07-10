@@ -1,26 +1,33 @@
 'use client';
 
 import { Canvas } from '@react-three/fiber';
-import { calculateRoomPosition } from '@campus/contracts';
-import { CampusGround } from './CampusGround';
-import { CampusCamera } from './CampusCamera';
-import { ProjectRoom } from '../office/ProjectRoom';
+import { ContactShadows } from '@react-three/drei';
+import { CampusEnvironment } from './CampusEnvironment';
+import { CampusHub } from './CampusHub';
+import { CampusCameraController } from './CampusCameraController';
+import { ProjectStudio } from './ProjectStudio';
 import { useCampusStore } from '../../stores/campusStore';
 
 export function CampusScene() {
   const projects = useCampusStore((s) => s.projects);
   const projectList = Object.values(projects);
+  const deselect = useCampusStore((s) => s.closeInspector);
 
   return (
-    <Canvas shadows camera={{ position: [20, 20, 30], fov: 45 }}>
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[20, 30, 10]} intensity={1} castShadow />
-      <CampusGround />
-      <CampusCamera />
-      {projectList.map((project, index) => {
-        const pos = calculateRoomPosition(index);
-        return <ProjectRoom key={project.id} project={project} position={[pos.x, 0, pos.z]} />;
-      })}
+    <Canvas
+      shadows
+      dpr={[1, 1.8]}
+      camera={{ position: [4, 70, 90], fov: 42, near: 0.5, far: 600 }}
+      onPointerMissed={() => deselect()}
+      gl={{ antialias: true }}
+    >
+      <CampusEnvironment />
+      <CampusCameraController />
+      <CampusHub />
+      <ContactShadows position={[0, 0.06, 0]} scale={90} blur={2.4} opacity={0.35} far={40} resolution={512} />
+      {projectList.map((project, index) => (
+        <ProjectStudio key={project.id} project={project} index={index} />
+      ))}
     </Canvas>
   );
 }

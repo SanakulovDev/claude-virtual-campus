@@ -28,6 +28,7 @@ beforeEach(() => {
     timeline: [],
     camera: { mode: 'campus', focusedProjectId: null, followedAgentId: null },
     selection: { selectedProjectId: null, selectedAgentId: null },
+    ui: { dockCollapsed: false, inspectorOpen: false, timelineExpanded: false, developerDetails: false },
   });
 });
 
@@ -101,5 +102,63 @@ describe('campusStore', () => {
     expect(useCampusStore.getState().camera.mode).toBe('room');
     useCampusStore.getState().returnToCampus();
     expect(useCampusStore.getState().camera.mode).toBe('campus');
+  });
+});
+
+describe('inspector / dock UI behaviour', () => {
+  function seedAgent() {
+    useCampusStore.getState().upsertProject(makeProject());
+    useCampusStore.getState().upsertAgent('a1', 'p1', {
+      id: 'a1',
+      projectId: 'p1',
+      externalAgentId: 'main-claude',
+      agentType: 'main-claude',
+      displayName: 'Main Claude',
+      status: 'active',
+      activity: 'coding',
+      currentZoneKey: 'development-desk',
+      currentTaskId: null,
+      currentSessionId: 's1',
+      lastSeenAt: new Date().toISOString(),
+    });
+  }
+
+  it('keeps the inspector closed until something is selected', () => {
+    expect(useCampusStore.getState().ui.inspectorOpen).toBe(false);
+  });
+
+  it('opens the inspector when a project is selected', () => {
+    useCampusStore.getState().selectProject('p1');
+    expect(useCampusStore.getState().ui.inspectorOpen).toBe(true);
+    expect(useCampusStore.getState().selection.selectedProjectId).toBe('p1');
+  });
+
+  it('selecting an agent opens the inspector and resolves its project', () => {
+    seedAgent();
+    useCampusStore.getState().selectAgent('a1');
+    expect(useCampusStore.getState().ui.inspectorOpen).toBe(true);
+    expect(useCampusStore.getState().selection.selectedAgentId).toBe('a1');
+    expect(useCampusStore.getState().selection.selectedProjectId).toBe('p1');
+  });
+
+  it('closeInspector clears selection and closes the drawer', () => {
+    useCampusStore.getState().selectProject('p1');
+    useCampusStore.getState().closeInspector();
+    expect(useCampusStore.getState().ui.inspectorOpen).toBe(false);
+    expect(useCampusStore.getState().selection.selectedProjectId).toBeNull();
+  });
+
+  it('returning to campus deselects and closes the inspector', () => {
+    useCampusStore.getState().selectProject('p1');
+    useCampusStore.getState().returnToCampus();
+    expect(useCampusStore.getState().ui.inspectorOpen).toBe(false);
+    expect(useCampusStore.getState().selection.selectedProjectId).toBeNull();
+    expect(useCampusStore.getState().camera.mode).toBe('campus');
+  });
+
+  it('toggles the dock', () => {
+    expect(useCampusStore.getState().ui.dockCollapsed).toBe(false);
+    useCampusStore.getState().toggleDock();
+    expect(useCampusStore.getState().ui.dockCollapsed).toBe(true);
   });
 });

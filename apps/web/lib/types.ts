@@ -80,6 +80,8 @@ export interface ApprovalRow {
 export interface TimelineEntry {
   id: string;
   projectId: string;
+  agentId?: string | null;
+  sessionId?: string | null;
   hookEventName: string;
   normalizedType: string;
   toolName: string | null;

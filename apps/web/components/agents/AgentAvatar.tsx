@@ -2,116 +2,178 @@
 
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import type { AgentActivity } from '@campus/contracts';
+import { agentBodyColor, PALETTE, STATE_COLOR } from '../../lib/theme';
+import type { SimplifiedAgentVisualState } from '../../selectors/visual-state.selector';
+import { AgentLabel } from './AgentLabel';
 import type { AgentRow } from '../../lib/types';
-
-const ACTIVITY_COLOR: Record<AgentActivity, string> = {
-  idle: '#6b7280',
-  planning: '#a78bfa',
-  walking: '#93c5fd',
-  researching: '#38bdf8',
-  coding: '#34d399',
-  testing: '#fbbf24',
-  building: '#fb923c',
-  reviewing: '#c084fc',
-  formatting: '#4ade80',
-  running_command: '#94a3b8',
-  managing_database: '#f472b6',
-  managing_infrastructure: '#f87171',
-  meeting: '#a78bfa',
-  waiting_approval: '#f43f5e',
-  blocked: '#ef4444',
-  failed: '#dc2626',
-  completed: '#22c55e',
-};
-
-const ROLE_COLOR: Record<string, string> = {
-  'main-claude': '#e2e8f0',
-};
 
 interface AgentAvatarProps {
   agent: AgentRow;
-  targetPosition: [number, number, number];
+  visualState: SimplifiedAgentVisualState;
+  target: [number, number, number];
+  restFacingY: number;
   selected: boolean;
   onSelect: () => void;
+  onFollow: () => void;
 }
 
-/** Procedural low-poly humanoid; movement/animation are entirely driven by real agent state. */
-export function AgentAvatar({ agent, targetPosition, selected, onSelect }: AgentAvatarProps) {
-  const group = useRef<THREE.Group>(null);
-  const bodyColor = ROLE_COLOR[agent.agentType] ?? '#cbd5e1';
-  const statusColor = ACTIVITY_COLOR[agent.activity] ?? '#6b7280';
-  const isWalking = agent.activity === 'walking';
-  const isWorking = ['coding', 'testing', 'building', 'researching', 'reviewing', 'formatting', 'running_command', 'managing_database', 'managing_infrastructure'].includes(agent.activity);
+/**
+ * Rounded low-poly avatar. Position/facing come only from the agent's committed studio
+ * location; pose comes only from its simplified visual state -- there is no idle fake work.
+ */
+export function AgentAvatar({ agent, visualState, target, restFacingY, selected, onSelect, onFollow }: AgentAvatarProps) {
+  const root = useRef<THREE.Group>(null);
+  const torso = useRef<THREE.Group>(null);
+  const leftArm = useRef<THREE.Mesh>(null);
+  const rightArm = useRef<THREE.Mesh>(null);
+  const beacon = useRef<THREE.Mesh>(null);
 
-  const target = useMemo(() => new THREE.Vector3(...targetPosition), [targetPosition]);
+  const targetVec = useMemo(() => new THREE.Vector3(...target), [target]);
+  const bodyColor = agentBodyColor(agent.agentType, agent.externalAgentId);
+  const isMain = agent.externalAgentId === 'main-claude' || agent.agentType === 'main-claude';
 
-  useFrame((state, delta) => {
-    const g = group.current;
+  useFrame(({ clock }, delta) => {
+    const g = root.current;
     if (!g) return;
-    g.position.lerp(target, Math.min(1, delta * 3));
-    const dir = target.clone().sub(g.position);
-    if (dir.lengthSq() > 0.001) {
-      const angle = Math.atan2(dir.x, dir.z);
-      g.rotation.y = THREE.MathUtils.lerp(g.rotation.y, angle, Math.min(1, delta * 5));
-    }
-    if (isWalking) {
-      g.position.y = Math.abs(Math.sin(state.clock.elapsedTime * 6)) * 0.05;
-    } else if (isWorking) {
-      g.position.y = Math.sin(state.clock.elapsedTime * 2) * 0.02;
+    const t = clock.elapsedTime;
+
+    // move toward committed target, frame-rate independent
+    const before = g.position.distanceTo(targetVec);
+    g.position.lerp(targetVec, Math.min(1, delta * 3.2));
+    const moving = before > 0.08;
+
+    // face movement direction while walking, otherwise settle to the location's rest facing
+    if (moving) {
+      const dir = targetVec.clone().sub(g.position);
+      if (dir.lengthSq() > 0.0001) {
+        const angle = Math.atan2(dir.x, dir.z);
+        g.rotation.y = dampAngle(g.rotation.y, angle, delta * 6);
+      }
     } else {
-      g.position.y = 0;
+      g.rotation.y = dampAngle(g.rotation.y, restFacingY, delta * 5);
+    }
+
+    const seated = !moving && (visualState === 'working' || visualState === 'checking');
+    // seated vs standing height
+    const targetY = seated ? -0.28 : 0;
+    if (torso.current) {
+      torso.current.position.y = THREE.MathUtils.lerp(torso.current.position.y, targetY, Math.min(1, delta * 6));
+      // celebration hop
+      if (visualState === 'completed') {
+        torso.current.position.y = Math.abs(Math.sin(t * 6)) * 0.35;
+      }
+    }
+
+    // arm animation by state
+    if (leftArm.current && rightArm.current) {
+      if (moving) {
+        leftArm.current.rotation.x = Math.sin(t * 8) * 0.5;
+        rightArm.current.rotation.x = -Math.sin(t * 8) * 0.5;
+      } else if (visualState === 'working') {
+        const typ = Math.sin(t * 9) * 0.15;
+        leftArm.current.rotation.x = -1.1 + typ;
+        rightArm.current.rotation.x = -1.1 - typ;
+      } else if (visualState === 'checking' || visualState === 'planning') {
+        leftArm.current.rotation.x = -0.4;
+        rightArm.current.rotation.x = -0.4;
+      } else if (visualState === 'completed') {
+        leftArm.current.rotation.x = -2.6;
+        rightArm.current.rotation.x = -2.6;
+      } else {
+        leftArm.current.rotation.x = THREE.MathUtils.lerp(leftArm.current.rotation.x, 0, delta * 5);
+        rightArm.current.rotation.x = THREE.MathUtils.lerp(rightArm.current.rotation.x, 0, delta * 5);
+      }
+    }
+
+    // attention beacon pulse
+    if (beacon.current) {
+      const on = visualState === 'attention';
+      beacon.current.visible = on;
+      if (on) beacon.current.position.y = 2.05 + Math.sin(t * 4) * 0.08;
     }
   });
 
+  const statusColor = STATE_COLOR[visualState];
+
   return (
-    <group ref={group} position={targetPosition} onClick={(e) => { e.stopPropagation(); onSelect(); }}>
-      {/* legs */}
-      <mesh position={[-0.12, 0.3, 0]} castShadow>
-        <boxGeometry args={[0.14, 0.6, 0.14]} />
-        <meshStandardMaterial color="#374151" />
+    <group
+      ref={root}
+      position={target}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect();
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onFollow();
+      }}
+    >
+      <group ref={torso}>
+        {/* legs */}
+        <mesh position={[-0.16, 0.42, 0]} castShadow>
+          <capsuleGeometry args={[0.13, 0.5, 4, 8]} />
+          <meshStandardMaterial color="#4a5160" roughness={0.9} />
+        </mesh>
+        <mesh position={[0.16, 0.42, 0]} castShadow>
+          <capsuleGeometry args={[0.13, 0.5, 4, 8]} />
+          <meshStandardMaterial color="#4a5160" roughness={0.9} />
+        </mesh>
+        {/* torso (rounded) */}
+        <mesh position={[0, 1.0, 0]} castShadow>
+          <capsuleGeometry args={[0.32, 0.5, 6, 12]} />
+          <meshStandardMaterial color={bodyColor} roughness={0.8} />
+        </mesh>
+        {/* accent collar */}
+        <mesh position={[0, 1.2, 0]}>
+          <torusGeometry args={[0.3, 0.05, 8, 20]} />
+          <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.3} />
+        </mesh>
+        {/* arms */}
+        <mesh ref={leftArm} position={[-0.38, 1.15, 0]} castShadow>
+          <capsuleGeometry args={[0.09, 0.4, 4, 8]} />
+          <meshStandardMaterial color={bodyColor} roughness={0.8} />
+        </mesh>
+        <mesh ref={rightArm} position={[0.38, 1.15, 0]} castShadow>
+          <capsuleGeometry args={[0.09, 0.4, 4, 8]} />
+          <meshStandardMaterial color={bodyColor} roughness={0.8} />
+        </mesh>
+        {/* head */}
+        <mesh position={[0, 1.62, 0]} castShadow>
+          <sphereGeometry args={[0.26, 20, 20]} />
+          <meshStandardMaterial color={PALETTE.avatarSkin} roughness={0.85} />
+        </mesh>
+        {/* main-claude gets a subtle crown ring */}
+        {isMain && (
+          <mesh position={[0, 1.86, 0]}>
+            <torusGeometry args={[0.16, 0.03, 8, 16]} />
+            <meshStandardMaterial color="#e8b23c" emissive="#e8b23c" emissiveIntensity={0.4} />
+          </mesh>
+        )}
+      </group>
+
+      {/* attention beacon */}
+      <mesh ref={beacon} position={[0, 2.05, 0]} visible={false}>
+        <octahedronGeometry args={[0.16, 0]} />
+        <meshStandardMaterial color={STATE_COLOR.attention} emissive={STATE_COLOR.attention} emissiveIntensity={1} />
       </mesh>
-      <mesh position={[0.12, 0.3, 0]} castShadow>
-        <boxGeometry args={[0.14, 0.6, 0.14]} />
-        <meshStandardMaterial color="#374151" />
-      </mesh>
-      {/* torso */}
-      <mesh position={[0, 0.75, 0]} castShadow>
-        <boxGeometry args={[0.42, 0.5, 0.24]} />
-        <meshStandardMaterial color={bodyColor} />
-      </mesh>
-      {/* arms */}
-      <mesh position={[-0.3, 0.75, 0]} castShadow>
-        <boxGeometry args={[0.14, 0.4, 0.14]} />
-        <meshStandardMaterial color={bodyColor} />
-      </mesh>
-      <mesh position={[0.3, 0.75, 0]} castShadow>
-        <boxGeometry args={[0.14, 0.4, 0.14]} />
-        <meshStandardMaterial color={bodyColor} />
-      </mesh>
-      {/* head */}
-      <mesh position={[0, 1.15, 0]} castShadow>
-        <boxGeometry args={[0.3, 0.3, 0.3]} />
-        <meshStandardMaterial color="#fcd9b8" />
-      </mesh>
-      {/* status indicator */}
-      <mesh position={[0, 1.45, 0]}>
-        <sphereGeometry args={[0.08, 12, 12]} />
-        <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.6} />
-      </mesh>
+
+      {/* selection ring */}
       {selected && (
-        <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.4, 0.5, 24]} />
-          <meshBasicMaterial color="#38bdf8" />
+        <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.42, 0.54, 28]} />
+          <meshBasicMaterial color="#3aa0f0" />
         </mesh>
       )}
-      <Html position={[0, 1.7, 0]} center distanceFactor={10} occlude>
-        <div style={{ fontSize: 11, color: 'white', background: 'rgba(15,17,23,0.75)', padding: '2px 6px', borderRadius: 4, whiteSpace: 'nowrap' }}>
-          {agent.displayName}
-        </div>
-      </Html>
+
+      <AgentLabel name={agent.displayName} state={visualState} selected={selected} />
     </group>
   );
+}
+
+function dampAngle(current: number, target: number, t: number): number {
+  let diff = target - current;
+  while (diff > Math.PI) diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+  return current + diff * Math.min(1, t);
 }
