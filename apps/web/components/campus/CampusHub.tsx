@@ -31,6 +31,112 @@ function Bench({ position, rotationY }: { position: [number, number, number]; ro
   );
 }
 
+function AreaLabel({ text, y = 1.7 }: { text: string; y?: number }) {
+  return (
+    <Html position={[0, y, 0]} center distanceFactor={30} pointerEvents="none" zIndexRange={HTML_Z_RANGE}>
+      <div
+        style={{
+          padding: '2px 8px',
+          borderRadius: 7,
+          background: 'rgba(15,17,23,0.6)',
+          color: '#dfe4ea',
+          fontSize: 10,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {text}
+      </div>
+    </Html>
+  );
+}
+
+/**
+ * Lightweight shared campus areas. Purely decorative places that give idle agents somewhere
+ * to belong -- coffee, games, garden, workshop, exercise, a sofa. Idle agents' ambient
+ * activity references these; no real work or conversation ever happens here.
+ */
+function SharedAreas() {
+  return (
+    <group>
+      {/* Coffee Area */}
+      <group position={[6, 0, 4]}>
+        <RoundedBox args={[1.6, 0.9, 0.7]} radius={0.06} position={[0, 0.45, 0]} castShadow>
+          <meshStandardMaterial color={PALETTE.studioTrim} roughness={0.9} />
+        </RoundedBox>
+        <mesh position={[0.3, 1.0, 0.1]}>
+          <cylinderGeometry args={[0.1, 0.08, 0.16, 10]} />
+          <meshStandardMaterial color="#f4efe7" />
+        </mesh>
+        <AreaLabel text="☕ Coffee Area" />
+      </group>
+
+      {/* Game Table */}
+      <group position={[-6, 0, 4]}>
+        <mesh position={[0, 0.75, 0]} castShadow>
+          <cylinderGeometry args={[0.9, 0.9, 0.12, 16]} />
+          <meshStandardMaterial color={PALETTE.planningTable} roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 0.35, 0]}>
+          <cylinderGeometry args={[0.12, 0.12, 0.7, 8]} />
+          <meshStandardMaterial color={PALETTE.tableLeg} />
+        </mesh>
+        <mesh position={[0, 0.83, 0]}>
+          <boxGeometry args={[0.6, 0.02, 0.6]} />
+          <meshStandardMaterial color="#e7e2d6" />
+        </mesh>
+        <AreaLabel text="♟ Game Table" />
+      </group>
+
+      {/* Garden */}
+      <group position={[0, 0, 8]}>
+        {[
+          [-0.6, 0, 0],
+          [0.5, 0, 0.3],
+          [0, 0, -0.5],
+        ].map((p, i) => (
+          <mesh key={i} position={[p[0]!, 0.4, p[2]!]} castShadow>
+            <icosahedronGeometry args={[0.5, 0]} />
+            <meshStandardMaterial color={PALETTE.foliage} roughness={1} flatShading />
+          </mesh>
+        ))}
+        <AreaLabel text="🌿 Garden" y={1.2} />
+      </group>
+
+      {/* Workshop Bench */}
+      <group position={[-6, 0, -5]}>
+        <RoundedBox args={[1.8, 0.2, 0.8]} radius={0.05} position={[0, 0.7, 0]} castShadow>
+          <meshStandardMaterial color={PALETTE.deskWoodDark} roughness={0.9} />
+        </RoundedBox>
+        <mesh position={[0.2, 0.95, 0]}>
+          <boxGeometry args={[0.3, 0.3, 0.3]} />
+          <meshStandardMaterial color="#9aa6b2" flatShading />
+        </mesh>
+        <AreaLabel text="🔧 Workshop Bench" />
+      </group>
+
+      {/* Exercise Area */}
+      <group position={[6, 0, -5]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.11, 0]}>
+          <planeGeometry args={[2.2, 1.4]} />
+          <meshStandardMaterial color="#6f8f9f" roughness={1} />
+        </mesh>
+        <AreaLabel text="🏃 Exercise Area" y={0.9} />
+      </group>
+
+      {/* Plaza sofa */}
+      <group position={[0, 0, -7]}>
+        <RoundedBox args={[2.2, 0.5, 0.9]} radius={0.14} position={[0, 0.4, 0]} castShadow>
+          <meshStandardMaterial color="#8695a6" roughness={0.9} />
+        </RoundedBox>
+        <RoundedBox args={[2.2, 0.5, 0.25]} radius={0.12} position={[0, 0.65, -0.35]} castShadow>
+          <meshStandardMaterial color="#8695a6" roughness={0.9} />
+        </RoundedBox>
+        <AreaLabel text="🛋 Campus Plaza" y={1.3} />
+      </group>
+    </group>
+  );
+}
+
 /** Central shared plaza the studios ring around. Gentle raised platform, a slow-rotating
  * sculpture, trees and benches -- a calm anchor, not a workflow station. */
 export function CampusHub() {
@@ -75,11 +181,13 @@ export function CampusHub() {
         </div>
       </Html>
 
+      <SharedAreas />
+
       <Tree position={[13, 0, 6]} />
       <Tree position={[-12, 0, -8]} />
       <Tree position={[8, 0, -13]} />
-      <Bench position={[-9, 0, 9]} rotationY={0.6} />
-      <Bench position={[10, 0, -6]} rotationY={-1.1} />
+      <Bench position={[-11, 0, 9]} rotationY={0.6} />
+      <Bench position={[11, 0, -9]} rotationY={-1.1} />
     </group>
   );
 }

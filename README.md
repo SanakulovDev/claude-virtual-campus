@@ -1,260 +1,252 @@
 # Claude Virtual Campus
 
-A local-first, browser-based 3D office that visualizes real Claude Code activity across
-any number of software projects -- PHP, Python, Go, Rust, Java, .NET, Ruby, C/C++,
-Elixir, Node.js, or anything else. Every monitored project gets its own persistent 3D
-room with a main Claude agent, subagents, and stations (research, testing, build,
-review, database, infrastructure, terminal, approval, task board), all driven by real
-Claude Code hook events -- never scripted demo animation.
+A living 3D office for your Claude Code projects.
 
-## 1. Product overview
+Every local project becomes its own room. Claude and its real subagents appear as named
+teammates — planning, coding, testing and reviewing in real time.
 
-Open Claude Code inside any project, give it a task, and Claude Virtual Campus:
+![Claude Virtual Campus](docs/images/campus-overview.png)
 
-1. Detects which project the event came from (git-based identity, or path-based for
-   non-git directories).
-2. Detects its technology stack (without requiring it, and without running anything).
-3. Creates or activates that project's room.
-4. Creates/updates the session and resolves which agent produced the event.
-5. Normalizes the event into a language-agnostic activity + office zone.
-6. Moves the corresponding 3D agent and displays observable work details.
-7. Persists sanitized activity history and returns agents to idle when done.
+**Local-first · Multi-project · Multi-agent · Language-agnostic · Real-time 3D**
 
-## 2. Architecture
+---
 
-```mermaid
-flowchart LR
-    CLI[Claude Code CLI]
-    Hooks[Universal Claude Hooks]
-    API[NestJS Event API]
-    Resolver[Project Resolver]
-    Detector[Technology Detector]
-    Normalizer[Event Normalizer]
-    DB[(PostgreSQL)]
-    WS[Socket.IO]
-    Web[Next.js UI]
-    Scene[3D Campus]
+## What it is
 
-    CLI --> Hooks
-    Hooks --> API
-    API --> Resolver
-    Resolver --> Detector
-    API --> Normalizer
-    Detector --> DB
-    Normalizer --> DB
-    Normalizer --> WS
-    WS --> Web
-    Web --> Scene
-```
+Open Claude Code inside any project, give it a task, and the campus lights up: it detects
+the project, gives it a room, and moves named 3D teammates as Claude actually works. It
+works with **any** language — PHP, Python, Go, Rust, Java, .NET, Ruby, Node.js or anything
+else — because it watches Claude Code's hooks, not your build system. Nothing is scripted:
+every movement is driven by a real hook event.
 
-Monorepo layout:
+![A focused project room](docs/images/project-room.png)
 
-```text
-apps/
-  api/     NestJS backend: event pipeline, Prisma/Postgres, Socket.IO gateway
-  web/     Next.js + React Three Fiber frontend
-packages/
-  contracts/          zod schemas, shared TS types, shared 3D layout constants
-  project-inspector/  git identity resolution + technology detection (pure)
-  event-normalizer/   command/file classification, redaction, normalization (pure)
-  claude-plugin/      hook scripts + installer/uninstaller
-  config-eslint/      shared eslint config (published as @campus/eslint-config)
-  config-typescript/  shared tsconfig base
-scripts/
-  demo-events.ts   PHP/Python/Go simulators over the real HTTP endpoint
-  e2e-smoke.ts     full-stack smoke test
-```
+## Key features
 
-See `CLAUDE.md` for architectural rules and the hook-event mapping caveat.
+- **A room per project.** Each local project you connect gets its own persistent studio.
+- **Real named teammates.** Main Claude plus the actual subagents Claude starts, each with
+  a readable name, a role and a short bio.
+- **Live 3D activity.** Agents plan, work, check and celebrate as hook events arrive.
+- **Ambient idle life.** Idle agents take coffee breaks and water plants — always clearly
+  labelled, never mistaken for real work.
+- **Approval flow.** Destructive commands pause the agent and ask for permission.
+- **Language-agnostic.** Zero assumptions about frameworks, package managers or `src/`.
+- **Local-first & safe.** Observes hooks; never executes your code.
 
-## 3. Installation
+## 60-second quick start
 
-Requirements: Node.js >= 20, Docker (for Postgres). pnpm is installed automatically via
-Corepack.
+Already have the campus cloned and installed? Two terminals:
 
 ```bash
-git clone <this repo>
-cd claude-virtual-campus
-corepack enable
-cp .env.example .env
-pnpm install
+# terminal 1 — start the campus
+cd ~/Developer/claude-virtual-campus
+pnpm db:up
+pnpm dev
 ```
-
-## 4. Database startup
 
 ```bash
-pnpm db:up        # docker compose up -d postgres (host port 5433, to avoid clashing
-                   # with any other local Postgres on 5432)
-pnpm db:migrate    # apply Prisma migrations
+# terminal 2 — connect a project
+cd ~/Developer/claude-virtual-campus
+pnpm campus:install ~/Developer/my-project
 ```
-
-## 5. Development commands
 
 ```bash
-pnpm dev           # starts web (:3100) and api (:4000)
-pnpm build         # production build of every package/app
-pnpm lint          # eslint across all workspaces
-pnpm typecheck     # tsc --noEmit across all workspaces
-pnpm test          # unit + integration tests across all workspaces
-pnpm test:e2e      # full-stack smoke test (starts its own db/api/web)
-pnpm test:redesign # headless-browser smoke: drives the UI, writes artifacts/redesign/*.png
-```
-
-### The campus at a glance
-
-The 3D world shows open **project studios** ringed around a central hub. Each studio has
-one planning table, agent desks (the monitor tint shows the work kind), one shared review
-screen and a status wall — not a station per backend event. Detailed backend activity is
-mapped on the frontend (`apps/web/selectors/`) into five visual states so agents move on
-meaningful phase changes rather than on every tool call:
-
-| Visual state | Backend activity (examples) | Where the agent goes |
-|---|---|---|
-| Planning | UserPromptSubmit, planning, meeting | planning table |
-| Working | Read/Grep/Edit/Write, generic commands, db/infra edits | assigned desk |
-| Checking | test, build, lint, typecheck, review | shared review screen |
-| Attention | permission request, blocked, tool failure | pauses in place + beacon |
-| Completed | task complete / successful stop | desk (brief celebrate) → idle |
-
-The full per-event detail (tools, files, commands, ids, classifier output) stays in the
-collapsible inspector drawer's **Developer details** section. Run `pnpm demo:attention`
-for the permission/approval demonstration.
-
-Startup output:
-
-```text
-Web:      http://localhost:3100
-API:      http://localhost:4000
-Health:   http://localhost:4000/api/health
-Database: localhost:5433
-```
-
-(Ports were moved off the 3000/5432 defaults because this machine already runs other
-projects on those ports -- see `.env.example` / `docker-compose.yml` if you want to
-change them back.)
-
-## 6. Claude Code hook installation
-
-```bash
-pnpm campus:install /absolute/path/to/any/project
-pnpm campus:uninstall /absolute/path/to/any/project
-```
-
-The installer only ever creates/edits files under `<project>/.claude/`. It never
-modifies `composer.json`, `package.json`, `go.mod`, `pyproject.toml`, or any other
-project manifest, is idempotent, backs up any existing `settings.json` before changing
-it, and works in non-git directories and paths containing spaces.
-
-## 7/8/9/10. Connecting a PHP / Python / Go / any other project
-
-There is no per-language setup. The same command works for all of them:
-
-```bash
-pnpm campus:install ~/projects/laravel-commerce
-pnpm campus:install ~/projects/python-ai-service
-pnpm campus:install ~/projects/go-payment-service
-pnpm campus:install ~/projects/anything-else
-```
-
-Then, inside that project:
-
-```bash
-cd ~/projects/laravel-commerce
+# then just use Claude Code as usual
+cd ~/Developer/my-project
 claude
 ```
 
-Give Claude Code a task; the corresponding room appears/activates in the campus UI in
-real time.
+Open **http://localhost:3100**, give Claude a task, and watch the project room come alive.
+Keep `pnpm dev` running the whole time.
 
-## 11. Technology detection
-
-`packages/project-inspector` inspects filenames/extensions at the project root (and one
-level down, for monorepo module detection) plus a handful of well-known manifest files
-read up to 64KB. It never executes project scripts, never installs dependencies, never
-runs builds. Unknown technology is represented safely (`primaryLanguage: null`, empty
-arrays) and never blocks room creation.
-
-## 12. Command classification
-
-`packages/event-normalizer`'s `classifyCommand` tokenizes a sanitized command string
-(no shell execution) and classifies it into one of: test, build, lint, format,
-typecheck, run, serve, install, database, migration, container, git, deploy,
-filesystem, network, inspection, destructive, unknown. Destructive detection (`rm -rf`,
-`sudo`, force pushes, DB drops/resets, etc.) is independent of the category rules and
-always routes to the approval desk.
-
-## 13. File classification
-
-`classifyFile` categorizes by path/extension only (never contents): source, test,
-configuration, database, migration, documentation, dependency, infrastructure, asset,
-generated, secret, unknown. Sensitive filenames (`.env`, `*.pem`, `id_rsa`, ...) are
-flagged `secret` and their content is never rendered; paths outside the project root are
-redacted to just their basename.
-
-## 14. Project and module routing
-
-Project identity = normalized git remote URL if present, else the (worktree-resolved)
-absolute repository root path, else the raw working directory for non-git projects --
-never the detected language. Routing key is `projectId + sessionId + agentId`. Nested
-applications inside a monorepo are represented as `ProjectModule`s under the same room,
-not separate rooms.
-
-## 15. Demo mode
+## Full installation
 
 ```bash
-pnpm demo:events   # runs php + python + go simulations
-pnpm demo:php
-pnpm demo:python
-pnpm demo:go
+git clone <repository-url>
+cd claude-virtual-campus
+
+pnpm install
+cp .env.example .env
+
+pnpm db:up
+pnpm db:migrate
+pnpm dev
 ```
 
-Each simulator creates a real temporary git repository with realistic files
-(`composer.json`+`artisan`, `pyproject.toml`, `go.mod`, ...) and POSTs the exact hook
-payload sequence from the product spec to the real `/api/claude/events` endpoint --
-there is no separate fake frontend path.
+- Web: **http://localhost:3100**
+- API: **http://localhost:4000**
 
-## 16. Approval flow
+`pnpm dev` runs both apps and must stay running. Requirements: Node.js ≥ 20 and Docker
+(for Postgres). More in [docs/development.md](docs/development.md).
 
-Non-destructive tool calls are allowed immediately (no persistence, nothing was
-actually gated). Destructive commands create a persisted `ApprovalRequest`, broadcast
-`approval:requested` to the project's room, and block the hook (up to
-`APPROVAL_TIMEOUT_MS`, default 30s) waiting for `POST /api/approvals/:id/allow` or
-`.../deny`. Timeout always resolves to **deny**.
+## Connect a project
 
-## 17. Security and privacy
+The same command works for every language:
 
-- Payload size limit (512kb) on hook ingestion endpoints.
-- Deep secret redaction (key-pattern + value-pattern) before persistence/broadcast;
-  prototype-pollution-safe (drops `__proto__`/`constructor`/`prototype` keys).
-- No shell interpolation anywhere -- git calls use `execFile` with argv arrays.
-- API binds to `127.0.0.1`; CORS restricted to `CORS_ORIGIN`.
-- Raw hook payloads are never sent to the frontend, only normalized shapes.
+```bash
+pnpm campus:install ~/Developer/prog.bts
+pnpm campus:install ~/Developer/laravel-shop
+pnpm campus:install ~/Developer/python-worker
+pnpm campus:install ~/Developer/go-service
+```
 
-## 18. Troubleshooting
+Paths with spaces are fine:
 
-- **Port already in use**: this repo defaults to Postgres `5433` and web `3100`
-  specifically to avoid clashing with other local projects; change `.env` and
-  `docker-compose.yml` together if you need different ports.
-- **Hook has no effect**: confirm `.claude/settings.json` in the target project has the
-  `hooks` block (re-run `pnpm campus:install <path>`), and that `CLAUDE_CAMPUS_URL`
-  points at a running API (defaults to `http://localhost:4000`).
-- **Approval hook seems to hang**: it blocks for at most `APPROVAL_TIMEOUT_MS` and then
-  denies; if the campus API is down entirely, `request-approval.sh` fails open (prints
-  nothing) so Claude Code's own default permission handling takes over.
+```bash
+pnpm campus:install "/Users/me/Developer/My Project"
+```
 
-## 19. Known limitations
+What the installer does — and does not do:
 
-- Claude Code hooks fire process-wide, not per-subagent (no dedicated subagent ID in
-  the payload); active-agent resolution is a documented heuristic, see `CLAUDE.md`.
-- Several hook event names in the original product spec (`PermissionRequest`,
-  `SubagentStart`, `TaskCreated`/`TaskCompleted`, `StopFailure`, `CwdChanged`) are not
-  separate documented Claude Code hooks and are derived from the ones that exist.
-- No first-person camera, no multiplayer, no cloud deploy (explicit non-goals).
-- Command/file classification rule tables cover the languages/tools named in the spec;
-  extending to further tools means adding rows to the same tables, not new subsystems.
+- It modifies **only** the project's `.claude/` directory.
+- It does **not** modify your application source code.
+- It does **not** modify `package.json`, `composer.json`, `pyproject.toml` or `go.mod`.
+- Installation is required **once** per project; afterwards you just run `claude` normally.
+- The room appears after the first Claude hook event, and stays visible after the session
+  ends.
 
-## 20. Roadmap
+To remove it:
 
-- Per-module room splitting (optional, currently modules share the repo's room).
+```bash
+pnpm campus:uninstall ~/Developer/my-project
+```
+
+## Daily usage
+
+1. Start the campus (`pnpm dev`) and open http://localhost:3100.
+2. Run `claude` inside any connected project and give it a task.
+3. Watch its room: the agent moves to the planning table, then to its desk to work, then to
+   the review screen to check, and celebrates when the task completes.
+4. Click a room or an agent to open the inspector for details; double-click an agent to
+   follow it.
+
+## Multi-agent rooms
+
+A room can hold the main Claude plus the real subagents Claude starts, for example a
+Planner, an Implementation Engineer and a QA Engineer working together.
+
+![Multiple named agents in one room](docs/images/multi-agent-room.png)
+
+> The campus does not invent working agents. It visualizes the real agents Claude Code
+> starts.
+
+Each teammate gets a stable desk and keeps its identity across restarts and reconnects
+(subagents are keyed on session + type, so re-running the same kind of subagent reuses the
+same teammate instead of duplicating it). Unknown subagent types still get a safe role and
+profile.
+
+### Work as a coordinated engineering team
+
+To see several teammates, ask Claude to split the work:
+
+> Use a **Planner** subagent to inspect the request and define a plan.
+> Use an **Implementation Engineer** subagent to make the changes.
+> Use a **QA Engineer** subagent to run tests and verify the result.
+> Use a **Reviewer** subagent to inspect the final implementation.
+
+Keep responsibilities separate and let Claude coordinate the final result. Multiple avatars
+appear **only** when Claude actually starts multiple subagents.
+
+## Named agents
+
+Every agent has a stable, human-readable name — never `agent-123` or `general-purpose-2`.
+Main Claude appears as **Claude — Team Lead**; subagents get names from a curated pool
+(Lucy, Jarvis, Anna, Milo, …), assigned deterministically with no duplicates in a room.
+
+![Agent profile in the inspector](docs/images/agent-inspector.png)
+
+Open an agent to see its **name, role, short bio, current state and observable action**,
+plus **Follow** and **Rename**. Renames persist across restarts, and "Reset name" restores
+the generated name. Raw ids stay tucked inside the collapsed **Developer details**.
+
+Roles the campus recognizes include Planner, Researcher, Implementation Engineer, Frontend
+/ Backend / Database Engineer, QA Engineer, Reviewer, Security Reviewer, DevOps Engineer and
+Documentation Agent — each with its own accessory on the avatar.
+
+### Optional team roster
+
+Pre-label the teammates a project will start with `<project>/.claude/campus.json`:
+
+```json
+{
+  "projectName": "prog.bts",
+  "team": [
+    { "agentType": "plan", "name": "Lucy", "role": "Planner" },
+    { "agentType": "implementation-engineer", "name": "Jarvis", "role": "Implementation Engineer" },
+    { "agentType": "qa-engineer", "name": "Anna", "role": "QA Engineer" }
+  ]
+}
+```
+
+This controls presentation only — it grants no permissions and creates no working agents.
+Scaffold a starter file with `pnpm campus:team /path/to/project`.
+
+## Idle campus life
+
+When an agent has no real task, it may do something human — a coffee break, watering the
+plants, a game of chess, a visit to the campus plaza. Ambient life is always clearly
+labelled and kept separate from real work:
+
+![Idle agents doing ambient activities](docs/images/idle-campus-life.png)
+
+- Ambient life starts **only** while an agent is genuinely idle and stops the instant a real
+  event arrives.
+- It never creates Claude events, tool calls, tasks or transcripts, and social animation is
+  never presented as real agent communication.
+- It is frozen while an approval is pending or an agent needs attention.
+- You can turn it off from the top bar ("Ambient life"), and it respects your OS
+  reduced-motion setting.
+
+Real work reads as **"Jarvis is editing the billing service — Real Claude activity"**;
+ambient life reads as **"Lucy is taking a coffee break — Ambient activity"**.
+
+## Architecture
+
+```text
+Claude Code CLI → universal hooks → NestJS event API → Postgres
+                                          → Socket.IO → Next.js + React Three Fiber
+```
+
+The campus is a pnpm/Turbo monorepo (NestJS API, Next.js 3D web, shared pure packages for
+project inspection and event normalization). Full detail, the data-flow diagram and the
+module boundaries are in [docs/architecture.md](docs/architecture.md).
+
+## Security
+
+The campus observes hooks and **never executes your code**. Secrets are redacted before
+anything is stored or shown, the API is local-only, destructive commands route through an
+approval flow that defaults to **deny** on timeout, and the hooks fail open so Claude Code
+keeps working if the campus is down. See [docs/security.md](docs/security.md).
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Project does not appear | `pnpm campus:install <path>`, then run `claude` in it; check `curl http://localhost:4000/api/health` |
+| Only Claude appears | The task started no subagents — use the multi-agent prompt above |
+| Database unavailable | `pnpm db:up && pnpm db:migrate` |
+| Campus offline | Claude Code keeps working; hooks fail open |
+
+More cases in [docs/troubleshooting.md](docs/troubleshooting.md).
+
+## Development commands
+
+```bash
+pnpm dev            # web (:3100) + api (:4000)
+pnpm lint           # eslint across all workspaces
+pnpm typecheck      # tsc --noEmit across all workspaces
+pnpm test           # unit + integration tests (needs the database up)
+pnpm build          # production build
+pnpm test:e2e       # full-stack smoke test
+pnpm screenshots    # regenerate docs/images/*.png from a real browser
+```
+
+Full development guide: [docs/development.md](docs/development.md).
+Hooks and the hook-event mapping: [docs/hooks.md](docs/hooks.md).
+
+## Roadmap
+
+- Per-module room splitting (modules currently share the repo's room).
 - Broader command-classifier coverage as new tools come up.
-- Visual regression testing for the 3D scene, if that becomes a real need.
+- Richer ambient animations and agents physically visiting shared campus areas.
+- Visual regression testing for the 3D scene.

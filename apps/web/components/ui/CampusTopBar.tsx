@@ -21,6 +21,8 @@ export function CampusTopBar() {
   const approvals = useCampusStore((s) => s.approvals);
   const returnToCampus = useCampusStore((s) => s.returnToCampus);
   const toggleDock = useCampusStore((s) => s.toggleDock);
+  const ambientLifeEnabled = useCampusStore((s) => s.ui.ambientLifeEnabled);
+  const toggleAmbientLife = useCampusStore((s) => s.toggleAmbientLife);
 
   const list = Object.values(projects);
   const totalProjects = list.length;
@@ -56,6 +58,18 @@ export function CampusTopBar() {
             <span className="text-[11px] uppercase tracking-wide text-rose-300/80">pending</span>
           </div>
         )}
+        <button
+          onClick={toggleAmbientLife}
+          aria-pressed={ambientLifeEnabled}
+          title="Ambient idle life is cosmetic only and never counts as real Claude work"
+          className={`rounded-md border px-2.5 py-1.5 text-xs font-medium ${
+            ambientLifeEnabled
+              ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+              : 'border-slate-700 bg-slate-900 text-slate-400 hover:bg-slate-800'
+          }`}
+        >
+          Ambient life: {ambientLifeEnabled ? 'on' : 'off'}
+        </button>
         <button
           onClick={returnToCampus}
           className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800"

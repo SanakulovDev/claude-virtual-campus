@@ -1,4 +1,4 @@
-import type { AgentActivity, AgentAnimation, CommandCategory, OfficeZoneKey } from '@campus/contracts';
+import type { AgentActivity, AgentActivitySource, AgentAnimation, CommandCategory, OfficeZoneKey } from '@campus/contracts';
 
 export interface TechnologyRow {
   id: string;
@@ -22,6 +22,11 @@ export interface AgentRow {
   externalAgentId: string | null;
   agentType: string;
   displayName: string;
+  generatedName?: string | null;
+  customName?: string | null;
+  role?: string | null;
+  bio?: string | null;
+  activitySource?: AgentActivitySource;
   status: string;
   activity: AgentActivity;
   currentZoneKey: OfficeZoneKey;

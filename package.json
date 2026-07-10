@@ -14,6 +14,7 @@
     "test": "turbo run test",
     "test:e2e": "tsx scripts/e2e-smoke.ts",
     "test:redesign": "tsx scripts/redesign-smoke.ts",
+    "screenshots": "tsx scripts/screenshots.ts",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
     "db:migrate": "pnpm --filter @campus/api exec prisma migrate deploy",
@@ -25,7 +26,8 @@
     "demo:go": "tsx scripts/demo-events.ts go",
     "demo:attention": "tsx scripts/demo-events.ts attention",
     "campus:install": "tsx packages/claude-plugin/installer/install.ts",
-    "campus:uninstall": "tsx packages/claude-plugin/installer/uninstall.ts"
+    "campus:uninstall": "tsx packages/claude-plugin/installer/uninstall.ts",
+    "campus:team": "tsx scripts/campus-team.ts"
   },
   "devDependencies": {
     "eslint": "^8.57.0",

@@ -19,6 +19,7 @@ interface UiState {
   inspectorOpen: boolean;
   timelineExpanded: boolean;
   developerDetails: boolean;
+  ambientLifeEnabled: boolean;
 }
 
 interface CampusStoreState {
@@ -47,6 +48,7 @@ interface CampusStoreState {
   toggleDock: () => void;
   toggleTimelineExpanded: () => void;
   toggleDeveloperDetails: () => void;
+  toggleAmbientLife: () => void;
 }
 
 function projectIdForAgent(projects: Record<string, ProjectRow>, agentId: string): string | null {
@@ -63,7 +65,7 @@ export const useCampusStore = create<CampusStoreState>((set) => ({
   timeline: [],
   camera: { mode: 'campus', focusedProjectId: null, followedAgentId: null },
   selection: { selectedProjectId: null, selectedAgentId: null },
-  ui: { dockCollapsed: false, inspectorOpen: false, timelineExpanded: false, developerDetails: false },
+  ui: { dockCollapsed: false, inspectorOpen: false, timelineExpanded: false, developerDetails: false, ambientLifeEnabled: true },
 
   setConnectionStatus: (status) => set({ connectionStatus: status }),
 
@@ -157,4 +159,5 @@ export const useCampusStore = create<CampusStoreState>((set) => ({
   toggleDock: () => set((state) => ({ ui: { ...state.ui, dockCollapsed: !state.ui.dockCollapsed } })),
   toggleTimelineExpanded: () => set((state) => ({ ui: { ...state.ui, timelineExpanded: !state.ui.timelineExpanded } })),
   toggleDeveloperDetails: () => set((state) => ({ ui: { ...state.ui, developerDetails: !state.ui.developerDetails } })),
+  toggleAmbientLife: () => set((state) => ({ ui: { ...state.ui, ambientLifeEnabled: !state.ui.ambientLifeEnabled } })),
 }));

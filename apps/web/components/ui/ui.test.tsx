@@ -32,7 +32,7 @@ function reset() {
     timeline: [],
     camera: { mode: 'campus', focusedProjectId: null, followedAgentId: null },
     selection: { selectedProjectId: null, selectedAgentId: null },
-    ui: { dockCollapsed: false, inspectorOpen: false, timelineExpanded: false, developerDetails: false },
+    ui: { dockCollapsed: false, inspectorOpen: false, timelineExpanded: false, developerDetails: false, ambientLifeEnabled: true },
   });
 }
 

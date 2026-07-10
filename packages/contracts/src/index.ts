@@ -1,4 +1,5 @@
 export * from './enums';
+export * from './agents';
 export * from './technology';
 export * from './project';
 export * from './hooks';

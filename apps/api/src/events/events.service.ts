@@ -9,6 +9,7 @@ import { AgentsService } from '../agents/agents.service';
 import { TasksService } from '../tasks/tasks.service';
 import { EventNormalizationService } from '../event-normalization/event-normalization.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { readTeamConfig } from '../agents/campus-team';
 
 @Injectable()
 export class EventsService {
@@ -41,14 +42,19 @@ export class EventsService {
     const toolInput = (raw.tool_input as Record<string, unknown> | undefined) ?? undefined;
     const isSubagentStart = raw.hook_event_name === 'PreToolUse' && raw.tool_name === 'Task';
     const isSubagentStop = raw.hook_event_name === 'SubagentStop';
+    const subagentType = typeof toolInput?.subagent_type === 'string' ? toolInput.subagent_type : undefined;
+
+    // Optional presentation overrides from <project>/.claude/campus.json (fail-open).
+    const team = readTeamConfig(resolved.rootPath);
 
     const agent = await this.agents.resolveActiveAgent({
       projectId: project.id,
       sessionId: session.id,
       isSubagentStart,
       isSubagentStop,
-      subagentType: typeof toolInput?.subagent_type === 'string' ? toolInput.subagent_type : undefined,
+      subagentType,
       subagentDescription: typeof toolInput?.description === 'string' ? toolInput.description : undefined,
+      override: subagentType ? team.overrides.get(subagentType) : undefined,
     });
 
     const core = this.normalizer.normalize(raw, resolved.rootPath);

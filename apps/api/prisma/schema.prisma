@@ -110,7 +110,11 @@ model ProjectAgent {
   externalAgentId  String?
   agentType        String
   displayName      String
+  generatedName    String?
+  customName       String?
   role             String?
+  bio              String?
+  activitySource   String    @default("real-work")
   status           String    @default("idle")
   activity         String    @default("idle")
   assignedDeskKey  String?

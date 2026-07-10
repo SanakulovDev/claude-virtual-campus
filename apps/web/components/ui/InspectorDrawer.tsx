@@ -1,12 +1,83 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { profileForAgentType } from '@campus/contracts';
 import { useCampusStore } from '../../stores/campusStore';
 import { selectAgentVisualState } from '../../selectors/visual-state.selector';
 import { selectProjectVisualState } from '../../selectors/project-status.selector';
-import { summarizeAgentAction, summarizeTimelineEntry } from '../../selectors/activity-summary.selector';
+import { summarizeTimelineEntry } from '../../selectors/activity-summary.selector';
+import { selectAgentActivityLine } from '../../selectors/activity-source.selector';
+import { useAmbientActivity } from '../../hooks/useAmbientActivity';
 import { STATE_COLOR, STATE_LABEL } from '../../lib/theme';
+import { renameAgent } from '../../lib/socket';
 import type { AgentRow, ProjectRow, TimelineEntry } from '../../lib/types';
+
+function agentRole(agent: AgentRow): string {
+  return agent.role ?? profileForAgentType(agent.agentType).role;
+}
+
+function agentBio(agent: AgentRow): string {
+  return agent.bio ?? profileForAgentType(agent.agentType).bio;
+}
+
+/** Inline rename control. Persists via the API; the socket echoes the update back. */
+function RenameControl({ agent }: { agent: AgentRow }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(agent.displayName);
+  const canReset = Boolean(agent.customName);
+
+  if (!editing) {
+    return (
+      <div className="flex gap-2">
+        <button
+          onClick={() => {
+            setValue(agent.displayName);
+            setEditing(true);
+          }}
+          className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
+        >
+          Rename
+        </button>
+        {canReset && (
+          <button
+            onClick={() => void renameAgent(agent.id, null)}
+            className="rounded-md border border-slate-800 px-2 py-1 text-[11px] text-slate-400 hover:text-slate-200"
+          >
+            Reset name
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  const save = () => {
+    const trimmed = value.trim();
+    void renameAgent(agent.id, trimmed.length ? trimmed : null);
+    setEditing(false);
+  };
+
+  return (
+    <div className="flex gap-1.5">
+      <input
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') setEditing(false);
+        }}
+        className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100 outline-none focus:border-sky-500"
+        aria-label="Agent name"
+      />
+      <button onClick={save} className="rounded-md bg-sky-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-sky-500">
+        Save
+      </button>
+      <button onClick={() => setEditing(false)} className="rounded-md border border-slate-700 px-2 py-1 text-[11px] text-slate-300 hover:bg-slate-800">
+        Cancel
+      </button>
+    </div>
+  );
+}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -72,22 +143,34 @@ function AgentInspector({ agent, project, timeline }: { agent: AgentRow; project
   const following = camera.mode === 'follow' && camera.followedAgentId === agent.id;
   const task = project?.tasks?.find((t) => t.id === agent.currentTaskId);
   const entries = timeline.filter((e) => e.agentId === agent.id);
+  const ambient = useAmbientActivity(agent, project?.id ?? '');
+  const line = selectAgentActivityLine(agent, ambient);
 
   return (
     <>
       <div className="px-4 py-3">
         <div className="text-base font-semibold text-slate-100">{agent.displayName}</div>
         <div className="text-xs text-slate-500">
-          {agent.agentType.replace(/-/g, ' ')}
+          {agentRole(agent)}
           {project ? ` · ${project.name}` : ''}
         </div>
-        <div className="mt-2">
+        <div className="mt-2 flex items-center gap-2">
           <StatePill state={state} />
+          <RenameControl agent={agent} />
         </div>
       </div>
 
+      <Section title="Profile">
+        <p className="text-xs leading-relaxed text-slate-300">{agentBio(agent)}</p>
+      </Section>
+
       <Section title="Current work">
-        <p className="text-sm text-slate-200">{summarizeAgentAction(agent)}</p>
+        <p className="text-sm text-slate-200">{line.text}</p>
+        {line.sourceLabel && (
+          <p className={`mt-1 text-[11px] ${line.source === 'ambient-idle' ? 'text-amber-400/80' : 'text-emerald-400/80'}`}>
+            {line.sourceLabel}
+          </p>
+        )}
         {task && <p className="mt-1 text-xs text-slate-500">Task: {task.title}</p>}
       </Section>
 
@@ -109,10 +192,13 @@ function AgentInspector({ agent, project, timeline }: { agent: AgentRow; project
 
       <DeveloperDetails
         rows={[
+          ['agent type', agent.agentType],
+          ['generated name', agent.generatedName],
           ['agent id', agent.externalAgentId],
           ['session', agent.currentSessionId],
           ['zone', agent.currentZoneKey],
           ['activity', agent.activity],
+          ['activity source', line.source],
           ['tool', agent.currentTool],
           ['file', agent.currentFile],
           ['command', agent.currentCommandSummary],
@@ -170,7 +256,10 @@ function ProjectInspector({ project, timeline }: { project: ProjectRow; timeline
               onClick={() => selectAgent(a.id)}
               className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left hover:bg-slate-800"
             >
-              <span className="text-xs text-slate-200">{a.displayName}</span>
+              <span className="flex flex-col">
+                <span className="text-xs text-slate-200">{a.displayName}</span>
+                <span className="text-[10px] text-slate-500">{agentRole(a)}</span>
+              </span>
               <StatePill state={selectAgentVisualState(a)} />
             </button>
           ))}

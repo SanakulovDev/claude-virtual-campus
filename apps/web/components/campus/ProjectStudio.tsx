@@ -10,6 +10,7 @@ import { assignDesks, deskPosition, locationPosition } from '../../selectors/stu
 import { summarizeAgentAction } from '../../selectors/activity-summary.selector';
 import { useCampusStore } from '../../stores/campusStore';
 import { useDebouncedLocation } from '../../hooks/useDebouncedLocation';
+import { useAmbientActivity } from '../../hooks/useAmbientActivity';
 import { StudioPlatform } from '../studio/StudioPlatform';
 import { StudioSign } from '../studio/StudioSign';
 import { StatusWall } from '../studio/StatusWall';
@@ -43,10 +44,12 @@ function monitorKind(agent: AgentRow): DeskMonitorKind {
  * don't move it. Placed among crowd-mates sharing the planning table / review screen. */
 function StudioAgent({
   agent,
+  projectId,
   deskIndex,
   crowd,
 }: {
   agent: AgentRow;
+  projectId: string;
   deskIndex: number;
   crowd: { index: number; count: number };
 }) {
@@ -54,6 +57,7 @@ function StudioAgent({
   const desired = selectStudioLocation(visualState);
   const location = useDebouncedLocation(desired);
   const target = locationPosition(location, deskIndex, crowd.index, crowd.count);
+  const ambient = useAmbientActivity(agent, projectId);
   const selectAgent = useCampusStore((s) => s.selectAgent);
   const followAgent = useCampusStore((s) => s.followAgent);
   const selectedAgentId = useCampusStore((s) => s.selection.selectedAgentId);
@@ -62,6 +66,7 @@ function StudioAgent({
     <AgentAvatar
       agent={agent}
       visualState={visualState}
+      ambient={ambient}
       target={target}
       restFacingY={REST_FACING[location]}
       selected={selectedAgentId === agent.id}
@@ -132,6 +137,7 @@ export function ProjectStudio({ project, index }: { project: ProjectRow; index: 
           <StudioAgent
             key={agent.id}
             agent={agent}
+            projectId={project.id}
             deskIndex={deskIndex}
             crowd={{ index: crowdIndex < 0 ? 0 : crowdIndex, count: crowdList.length || 1 }}
           />
