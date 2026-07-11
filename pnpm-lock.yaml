@@ -141,6 +141,9 @@ importers:
       three:
         specifier: ^0.170.0
         version: 0.170.0
+      three-pathfinding:
+        specifier: ^1.3.0
+        version: 1.3.0(three@0.170.0)
       three-stdlib:
         specifier: ^2.35.0
         version: 2.36.1(three@0.170.0)
@@ -3361,6 +3364,11 @@ packages:
     deprecated: Deprecated due to three.js version incompatibility. Please use v0.8.0, instead.
     peerDependencies:
       three: '>= 0.151.0'
+
+  three-pathfinding@1.3.0:
+    resolution: {integrity: sha512-LKxMI3/YqdMYvt6AdE2vB6s5ueDFczt/DWoxhtPNgRsH6E0D8LMYQxz+eIrmKo0MQpDvMVzXYUMBk+b86+k97w==}
+    peerDependencies:
+      three: 0.x.x
 
   three-stdlib@2.36.1:
     resolution: {integrity: sha512-XyGQrFmNQ5O/IoKm556ftwKsBg11TIb301MB5dWNicziQBEs2g3gtOYIf7pFiLa0zI2gUwhtCjv9fmjnxKZ1Cg==}
@@ -6885,6 +6893,10 @@ snapshots:
       any-promise: 1.3.0
 
   three-mesh-bvh@0.7.8(three@0.170.0):
+    dependencies:
+      three: 0.170.0
+
+  three-pathfinding@1.3.0(three@0.170.0):
     dependencies:
       three: 0.170.0
 
