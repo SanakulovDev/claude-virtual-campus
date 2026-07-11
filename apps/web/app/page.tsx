@@ -8,6 +8,8 @@ import { ProjectDock } from '../components/ui/ProjectDock';
 import { InspectorDrawer } from '../components/ui/InspectorDrawer';
 import { ContextTimeline } from '../components/ui/ContextTimeline';
 import { ApprovalDrawer } from '../components/ui/ApprovalDrawer';
+import { AnalyticsPanel } from '../components/ui/AnalyticsPanel';
+import { CampusStatusPill } from '../components/ui/CampusStatusPill';
 import { useCampusStore } from '../stores/campusStore';
 
 const CampusScene = dynamic(() => import('../components/campus/CampusScene').then((m) => m.CampusScene), {
@@ -32,12 +34,14 @@ export default function Page() {
   }, [cameraMode, closeInspector, stopFollowing]);
 
   return (
-    <div className="flex h-screen flex-col bg-slate-950">
+    <div className="flex h-screen flex-col bg-[#eef1f5]">
       <CampusTopBar />
       <div className="flex min-h-0 flex-1">
         <ProjectDock />
         <main className="relative min-w-0 flex-1" data-testid="campus-canvas">
           <CampusScene />
+          <AnalyticsPanel />
+          <CampusStatusPill />
           <InspectorDrawer />
           <ApprovalDrawer />
         </main>

@@ -2,8 +2,9 @@
 
 A living 3D office for your Claude Code projects.
 
-Every local project becomes its own room. Claude and its real subagents appear as named
-teammates — planning, coding, testing and reviewing in real time.
+Every local project becomes its own glass-walled room on a floating campus island. Claude
+and its real subagents appear as named teammates — planning, coding, testing and reviewing
+in real time — under a clean, premium light UI with live analytics and a campus status bar.
 
 ![Claude Virtual Campus](docs/images/campus-overview.png)
 
@@ -30,6 +31,8 @@ every movement is driven by a real hook event.
 - **Ambient idle life.** Idle agents take coffee breaks and water plants — always clearly
   labelled, never mistaken for real work.
 - **Approval flow.** Destructive commands pause the agent and ask for permission.
+- **Premium campus UI.** Light isometric world, per-project rooms, live agent-utilization
+  analytics and an at-a-glance campus status — all derived from real state, never faked.
 - **Language-agnostic.** Zero assumptions about frameworks, package managers or `src/`.
 - **Local-first & safe.** Observes hooks; never executes your code.
 

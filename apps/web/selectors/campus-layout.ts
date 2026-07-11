@@ -8,8 +8,8 @@ export interface StudioPlacement {
   ring: number;
 }
 
-const HUB_CLEAR = 30; // radius of the innermost ring
-const RING_SPACING = 26;
+const HUB_CLEAR = 21; // radius of the innermost ring
+const RING_SPACING = 20;
 
 function slotsInRing(ring: number): number {
   return 6 * (ring + 1);

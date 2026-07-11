@@ -98,12 +98,13 @@ export function CampusCameraController() {
       points.push(new THREE.Vector3(p[0], 0, p[2]));
     }
     const centroid = points.reduce((acc, p) => acc.add(p), new THREE.Vector3()).multiplyScalar(1 / points.length);
-    const radius = Math.max(20, ...points.map((p) => p.distanceTo(centroid))) + 16;
-    const dist = radius * 1.9 + 18;
+    const spread = Math.max(16, ...points.map((p) => p.distanceTo(centroid))) + 10;
+    const dist = spread * 1.7 + 16;
+    // corner-isometric: whole floating island centred, rooms and agents still read big
     return {
       sig: 'overview',
-      camera: centroid.clone().add(new THREE.Vector3(dist * 0.05, dist * 0.9, dist)),
-      target: centroid.clone(),
+      camera: centroid.clone().add(new THREE.Vector3(dist * 0.42, dist * 0.72, dist * 0.56)),
+      target: centroid.clone().setY(3),
     };
   }
 

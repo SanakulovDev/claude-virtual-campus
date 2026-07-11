@@ -5,6 +5,11 @@ import type { SimplifiedAgentVisualState } from '../selectors/visual-state.selec
 export const PALETTE = {
   sceneBackground: '#e9ebee',
   ground: '#d5d8dd',
+  grass: '#9cb36e',
+  grassEdge: '#8aa25e',
+  earth: '#a07d55',
+  earthDark: '#7c5c3c',
+  path: '#cdbfa2',
   hubPlatform: '#cdc7bb',
   hubAccent: '#b7b0a2',
   studioPlatform: '#ece8e0',

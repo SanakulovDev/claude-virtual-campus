@@ -34,14 +34,14 @@ function RenameControl({ agent }: { agent: AgentRow }) {
             setValue(agent.displayName);
             setEditing(true);
           }}
-          className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
+          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100"
         >
           Rename
         </button>
         {canReset && (
           <button
             onClick={() => void renameAgent(agent.id, null)}
-            className="rounded-md border border-slate-800 px-2 py-1 text-[11px] text-slate-400 hover:text-slate-200"
+            className="rounded-md border border-slate-200 px-2 py-1 text-[11px] text-slate-400 hover:text-slate-700"
           >
             Reset name
           </button>
@@ -66,13 +66,13 @@ function RenameControl({ agent }: { agent: AgentRow }) {
           if (e.key === 'Enter') save();
           if (e.key === 'Escape') setEditing(false);
         }}
-        className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100 outline-none focus:border-sky-500"
+        className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-sky-500"
         aria-label="Agent name"
       />
       <button onClick={save} className="rounded-md bg-sky-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-sky-500">
         Save
       </button>
-      <button onClick={() => setEditing(false)} className="rounded-md border border-slate-700 px-2 py-1 text-[11px] text-slate-300 hover:bg-slate-800">
+      <button onClick={() => setEditing(false)} className="rounded-md border border-slate-300 px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-100">
         Cancel
       </button>
     </div>
@@ -81,7 +81,7 @@ function RenameControl({ agent }: { agent: AgentRow }) {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="border-t border-slate-800/70 px-4 py-3">
+    <section className="border-t border-slate-200/70 px-4 py-3">
       <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{title}</h3>
       {children}
     </section>
@@ -105,7 +105,7 @@ function RecentActivity({ entries }: { entries: TimelineEntry[] }) {
   return (
     <ul className="space-y-1">
       {entries.slice(0, 8).map((e) => (
-        <li key={e.id} className="text-xs text-slate-300">
+        <li key={e.id} className="text-xs text-slate-600">
           {summarizeTimelineEntry(e)}
         </li>
       ))}
@@ -118,7 +118,7 @@ function DeveloperDetails({ rows }: { rows: Array<[string, string | null | undef
   const toggle = useCampusStore((s) => s.toggleDeveloperDetails);
   return (
     <Section title="Developer details">
-      <button onClick={toggle} className="mb-1 text-xs text-slate-400 hover:text-slate-200">
+      <button onClick={toggle} className="mb-1 text-xs text-slate-400 hover:text-slate-700">
         {show ? 'Hide' : 'Show'} raw fields
       </button>
       {show && (
@@ -126,7 +126,7 @@ function DeveloperDetails({ rows }: { rows: Array<[string, string | null | undef
           {rows.filter(([, v]) => v).map(([k, v]) => (
             <div key={k} className="flex gap-2 text-[11px]">
               <dt className="w-28 flex-none text-slate-500">{k}</dt>
-              <dd className="min-w-0 break-all text-slate-300">{v}</dd>
+              <dd className="min-w-0 break-all text-slate-600">{v}</dd>
             </div>
           ))}
         </dl>
@@ -149,7 +149,7 @@ function AgentInspector({ agent, project, timeline }: { agent: AgentRow; project
   return (
     <>
       <div className="px-4 py-3">
-        <div className="text-base font-semibold text-slate-100">{agent.displayName}</div>
+        <div className="text-base font-semibold text-slate-900">{agent.displayName}</div>
         <div className="text-xs text-slate-500">
           {agentRole(agent)}
           {project ? ` · ${project.name}` : ''}
@@ -161,11 +161,11 @@ function AgentInspector({ agent, project, timeline }: { agent: AgentRow; project
       </div>
 
       <Section title="Profile">
-        <p className="text-xs leading-relaxed text-slate-300">{agentBio(agent)}</p>
+        <p className="text-xs leading-relaxed text-slate-600">{agentBio(agent)}</p>
       </Section>
 
       <Section title="Current work">
-        <p className="text-sm text-slate-200">{line.text}</p>
+        <p className="text-sm text-slate-700">{line.text}</p>
         {line.sourceLabel && (
           <p className={`mt-1 text-[11px] ${line.source === 'ambient-idle' ? 'text-amber-400/80' : 'text-emerald-400/80'}`}>
             {line.sourceLabel}
@@ -180,7 +180,7 @@ function AgentInspector({ agent, project, timeline }: { agent: AgentRow; project
 
       <div className="px-4 py-3">
         {following ? (
-          <button onClick={stopFollowing} className="w-full rounded-md border border-slate-700 bg-slate-900 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800">
+          <button onClick={stopFollowing} className="w-full rounded-md border border-slate-300 bg-white py-2 text-xs font-medium text-slate-700 hover:bg-slate-100">
             Stop following
           </button>
         ) : (
@@ -219,7 +219,7 @@ function ProjectInspector({ project, timeline }: { project: ProjectRow; timeline
   return (
     <>
       <div className="px-4 py-3">
-        <div className="text-base font-semibold text-slate-100">{project.name}</div>
+        <div className="text-base font-semibold text-slate-900">{project.name}</div>
         <div className="text-xs text-slate-500">{project.isGitRepository ? 'git repository' : 'local directory'}</div>
         <div className="mt-2">
           <StatePill state={state} />
@@ -230,7 +230,7 @@ function ProjectInspector({ project, timeline }: { project: ProjectRow; timeline
         <Section title="Technology">
           <div className="flex flex-wrap gap-1.5">
             {project.technologies.map((t) => (
-              <span key={t.id} className="rounded-md bg-slate-800 px-2 py-0.5 text-[11px] text-slate-200">
+              <span key={t.id} className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700">
                 {t.displayName}
               </span>
             ))}
@@ -242,7 +242,7 @@ function ProjectInspector({ project, timeline }: { project: ProjectRow; timeline
         <Section title="Modules">
           {project.modules.map((m) => (
             <div key={m.id} className="text-xs text-slate-400">
-              {m.relativePath} <span className="text-slate-600">({m.primaryLanguage ?? 'unknown'})</span>
+              {m.relativePath} <span className="text-slate-400">({m.primaryLanguage ?? 'unknown'})</span>
             </div>
           ))}
         </Section>
@@ -254,10 +254,10 @@ function ProjectInspector({ project, timeline }: { project: ProjectRow; timeline
             <button
               key={a.id}
               onClick={() => selectAgent(a.id)}
-              className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left hover:bg-slate-800"
+              className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left hover:bg-slate-100"
             >
               <span className="flex flex-col">
-                <span className="text-xs text-slate-200">{a.displayName}</span>
+                <span className="text-xs text-slate-700">{a.displayName}</span>
                 <span className="text-[10px] text-slate-500">{agentRole(a)}</span>
               </span>
               <StatePill state={selectAgentVisualState(a)} />
@@ -305,12 +305,12 @@ export function InspectorDrawer() {
 
   return (
     <aside
-      className="pointer-events-auto absolute right-0 top-0 z-20 flex h-full w-[340px] max-w-[88vw] flex-col overflow-y-auto border-l border-slate-800/80 bg-slate-950/95 backdrop-blur"
+      className="pointer-events-auto absolute right-0 top-0 z-20 flex h-full w-[340px] max-w-[88vw] flex-col overflow-y-auto border-l border-slate-200/80 panel-solid"
       role="complementary"
     >
       <div className="flex items-center justify-between px-4 pt-3">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Inspector</span>
-        <button onClick={close} className="rounded-md p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100" aria-label="Close inspector">
+        <button onClick={close} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-900" aria-label="Close inspector">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
             <path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />
           </svg>

@@ -17,7 +17,7 @@ export function CampusScene() {
     <Canvas
       shadows
       dpr={[1, 1.8]}
-      camera={{ position: [4, 70, 90], fov: 42, near: 0.5, far: 600 }}
+      camera={{ position: [42, 46, 52], fov: 42, near: 0.5, far: 600 }}
       onPointerMissed={() => deselect()}
       gl={{ antialias: true }}
     >

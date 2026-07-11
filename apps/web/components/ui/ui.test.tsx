@@ -32,7 +32,7 @@ function reset() {
     timeline: [],
     camera: { mode: 'campus', focusedProjectId: null, followedAgentId: null },
     selection: { selectedProjectId: null, selectedAgentId: null },
-    ui: { dockCollapsed: false, inspectorOpen: false, timelineExpanded: false, developerDetails: false, ambientLifeEnabled: true },
+    ui: { dockCollapsed: false, inspectorOpen: false, timelineExpanded: false, developerDetails: false, ambientLifeEnabled: true, searchQuery: '' },
   });
 }
 
@@ -82,7 +82,7 @@ describe('CampusTopBar', () => {
   it('shows the campus overview control and resets the camera', () => {
     useCampusStore.setState({ camera: { mode: 'room', focusedProjectId: 'p1', followedAgentId: null } });
     render(<CampusTopBar />);
-    fireEvent.click(screen.getByText('Campus overview'));
+    fireEvent.click(screen.getByText('Campus Overview'));
     expect(useCampusStore.getState().camera.mode).toBe('campus');
   });
 });

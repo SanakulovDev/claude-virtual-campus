@@ -32,28 +32,28 @@ export function ContextTimeline() {
   const scopeLabel = scope === 'agent' ? 'Agent activity' : scope === 'project' ? 'Project activity' : 'Campus activity';
 
   return (
-    <div className="pointer-events-auto border-t border-slate-800/80 bg-slate-950/90 backdrop-blur">
+    <div className="panel pointer-events-auto border-t border-slate-200/80">
       <div className="flex items-center gap-3 px-3 py-1.5">
-        <span className="flex-none text-[10px] font-semibold uppercase tracking-wide text-slate-500">{scopeLabel}</span>
+        <span className="flex-none text-[10px] font-semibold uppercase tracking-wide text-slate-400">{scopeLabel}</span>
         {!expanded && (
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
             {entries.slice(0, 24).map((e) => (
-              <span key={e.id} className="flex-none rounded-md bg-slate-900 px-2 py-0.5 text-[11px] text-slate-300">
+              <span key={e.id} className="flex-none rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
                 {summarizeTimelineEntry(e)}
               </span>
             ))}
           </div>
         )}
-        <button onClick={toggle} className="ml-auto flex-none rounded px-2 py-0.5 text-[11px] text-slate-400 hover:bg-slate-800 hover:text-slate-200">
+        <button onClick={toggle} className="ml-auto flex-none rounded px-2 py-0.5 text-[11px] text-slate-500 hover:bg-slate-100 hover:text-slate-800">
           {expanded ? 'Collapse' : 'Expand'}
         </button>
       </div>
       {expanded && (
         <ul className="max-h-48 overflow-y-auto px-3 pb-2">
           {entries.slice(0, 100).map((e) => (
-            <li key={e.id} className="flex justify-between border-b border-slate-900 py-1 text-[11px] text-slate-300">
+            <li key={e.id} className="flex justify-between border-b border-slate-100 py-1 text-[11px] text-slate-600">
               <span>{summarizeTimelineEntry(e)}</span>
-              <span className="text-slate-600">{new Date(e.receivedAt).toLocaleTimeString()}</span>
+              <span className="text-slate-400">{new Date(e.receivedAt).toLocaleTimeString()}</span>
             </li>
           ))}
         </ul>

@@ -13,13 +13,14 @@ const STATE_ORDER: Record<ProjectVisualState, number> = {
   idle: 5,
 };
 
-/** Narrow, collapsible dock of projects. State dot + name + agent count + short state +
- * attention badge. No repository paths or heavy metadata. */
+/** Narrow project rail. State dot + name + agent count + short state + attention badge.
+ * Filters live on the top-bar search. No repository paths or heavy metadata. */
 export function ProjectDock() {
   const projects = useCampusStore((s) => s.projects);
   const approvals = useCampusStore((s) => s.approvals);
   const selection = useCampusStore((s) => s.selection);
   const collapsed = useCampusStore((s) => s.ui.dockCollapsed);
+  const query = useCampusStore((s) => s.ui.searchQuery).trim().toLowerCase();
   const selectProject = useCampusStore((s) => s.selectProject);
   const focusProject = useCampusStore((s) => s.focusProjectRoom);
 
@@ -28,23 +29,31 @@ export function ProjectDock() {
   );
 
   const list = Object.values(projects)
+    .filter((p) =>
+      query === '' ||
+      p.name.toLowerCase().includes(query) ||
+      p.agents.some((a) => a.displayName.toLowerCase().includes(query)),
+    )
     .map((p) => ({ project: p, state: selectProjectVisualState(p.agents) }))
     .sort((a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state] || a.project.name.localeCompare(b.project.name));
 
   if (collapsed) return null;
 
   return (
-    <aside className="flex w-60 flex-none flex-col border-r border-slate-800/80 bg-slate-950/85 backdrop-blur">
-      <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Projects</div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+    <aside className="panel flex w-64 flex-none flex-col border-r border-slate-200/80">
+      <div className="px-4 pb-1.5 pt-3 text-[12px] font-semibold uppercase tracking-wide text-slate-400">My Projects</div>
+      <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         {list.length === 0 && (
-          <p className="px-3 py-4 text-xs leading-relaxed text-slate-500">
-            No projects yet. Run a Claude Code session with the hook installed, or <code>pnpm demo:events</code>.
+          <p className="px-4 py-4 text-xs leading-relaxed text-slate-400">
+            {query ? 'No matching projects.' : (
+              <>No projects yet. Run a Claude Code session with the hook installed, or <code className="rounded bg-slate-100 px-1">pnpm demo:events</code>.</>
+            )}
           </p>
         )}
         {list.map(({ project, state }) => {
           const selected = selection.selectedProjectId === project.id;
           const hasAttention = state === 'attention' || pendingByProject.has(project.id);
+          const n = project.agents.length;
           return (
             <button
               key={project.id}
@@ -52,8 +61,8 @@ export function ProjectDock() {
                 selectProject(project.id);
                 focusProject(project.id);
               }}
-              className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors ${
-                selected ? 'bg-slate-800/80' : 'hover:bg-slate-900'
+              className={`mx-2 flex w-[calc(100%-1rem)] items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                selected ? 'bg-white shadow-sm ring-1 ring-slate-200' : 'hover:bg-white/60'
               }`}
             >
               <span
@@ -61,13 +70,13 @@ export function ProjectDock() {
                 style={{ background: STATE_COLOR[state], boxShadow: `0 0 0 3px ${projectAccent(project.projectKey)}22` }}
               />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-medium text-slate-100">{project.name}</span>
+                <span className="block truncate text-[13px] font-medium text-slate-800">{project.name}</span>
                 <span className="text-[11px] text-slate-500">
-                  {project.agents.length} agent{project.agents.length === 1 ? '' : 's'} · {STATE_LABEL[state]}
+                  {n} Agent{n === 1 ? '' : 's'}, {STATE_LABEL[state]}
                 </span>
               </span>
               {hasAttention && (
-                <span className="flex-none rounded-full bg-rose-500/20 px-1.5 text-xs font-bold text-rose-300">
+                <span className="flex-none rounded-full bg-rose-100 px-1.5 text-xs font-bold text-rose-600">
                   {STATE_ICON.attention}
                 </span>
               )}
