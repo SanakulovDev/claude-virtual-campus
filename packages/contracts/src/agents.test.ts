@@ -6,6 +6,13 @@ describe('pickAgentName', () => {
     expect(pickAgentName([])).toBe(AGENT_NAME_POOL[0]);
   });
 
+  it('uses an Uzbek default pool with no duplicates', () => {
+    expect(AGENT_NAME_POOL[0]).toBe("Ulug'bek");
+    expect(AGENT_NAME_POOL.length).toBeGreaterThanOrEqual(20);
+    expect(new Set(AGENT_NAME_POOL).size).toBe(AGENT_NAME_POOL.length);
+    expect(AGENT_NAME_POOL).toContain('Aziza');
+  });
+
   it('never returns a name already taken', () => {
     const used: string[] = [];
     for (let i = 0; i < AGENT_NAME_POOL.length; i += 1) {
@@ -18,7 +25,7 @@ describe('pickAgentName', () => {
   });
 
   it('is deterministic for the same used set', () => {
-    expect(pickAgentName(['Lucy'])).toBe(pickAgentName(['Lucy']));
+    expect(pickAgentName([AGENT_NAME_POOL[0]])).toBe(pickAgentName([AGENT_NAME_POOL[0]]));
   });
 
   it('falls back to numbered names once the pool is exhausted', () => {

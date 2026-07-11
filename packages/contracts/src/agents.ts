@@ -12,30 +12,30 @@ import type { AgentType } from './enums';
 /** Whether an agent's currently shown activity is real Claude work or client-side idle life. */
 export type AgentActivitySource = 'real-work' | 'ambient-idle';
 
-/** Curated pool of readable first names, assigned deterministically per project. */
+/** Curated pool of readable Uzbek first names, assigned deterministically per project. */
 export const AGENT_NAME_POOL = [
-  'Lucy',
-  'Jarvis',
-  'Anna',
-  'Milo',
-  'Sofia',
-  'Atlas',
-  'Nova',
-  'Leo',
-  'Maya',
-  'Oscar',
-  'Iris',
-  'Theo',
-  'Luna',
-  'Nora',
-  'Felix',
-  'Ava',
-  'Kai',
-  'Ruby',
-  'Enzo',
-  'Cleo',
-  'Hugo',
-  'Vera',
+  "Ulug'bek",
+  'Shahnozaxon',
+  'Ahmadjon',
+  'Aziza',
+  'Javohir',
+  'Dilnoza',
+  'Sardor',
+  'Kamola',
+  'Bekzod',
+  'Nilufar',
+  'Jasur',
+  'Malika',
+  'Otabek',
+  'Gulnora',
+  'Sherzod',
+  'Zarina',
+  'Doniyor',
+  'Feruza',
+  'Sanjar',
+  'Mohira',
+  'Akmal',
+  'Laylo',
 ] as const;
 
 /** The main-claude agent is always this fixed identity, never drawn from the pool. */
