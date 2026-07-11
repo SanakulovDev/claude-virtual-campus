@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { ContactShadows, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
@@ -14,8 +15,8 @@ export function CampusScene() {
   const projects = useCampusStore((s) => s.projects);
   const projectList = Object.values(projects);
   const deselect = useCampusStore((s) => s.closeInspector);
-  // Probed once per mount: headless/software-WebGL screenshot pipeline must stay bloom-free.
-  const canBloom = detectRenderCapability() === 'full';
+  // Probed once per mount (not per render): headless/software-WebGL pipeline stays bloom-free.
+  const canBloom = useMemo(() => detectRenderCapability() === 'full', []);
 
   return (
     <Canvas

@@ -98,9 +98,9 @@ function teamFixture(): string {
       {
         projectName: 'prog.bts',
         team: [
-          { agentType: 'plan', name: 'Lucy', role: 'Planner' },
-          { agentType: 'implementation-engineer', name: 'Jarvis', role: 'Implementation Engineer' },
-          { agentType: 'qa-engineer', name: 'Anna', role: 'QA Engineer' },
+          { agentType: 'plan', name: "Ulug'bek", role: 'Planner' },
+          { agentType: 'implementation-engineer', name: 'Shahnozaxon', role: 'Implementation Engineer' },
+          { agentType: 'qa-engineer', name: 'Ahmadjon', role: 'QA Engineer' },
         ],
       },
       null,

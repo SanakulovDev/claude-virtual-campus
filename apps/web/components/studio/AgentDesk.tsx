@@ -72,7 +72,7 @@ export function AgentDesk({ position, monitor }: { position: [number, number, nu
           <boxGeometry args={[0.5, 0.6, 0.08]} />
           <meshStandardMaterial color={PALETTE.reviewFrame} roughness={0.6} />
         </mesh>
-        <mesh position={[0, 0.26, 0]}>
+        <mesh position={[0, 0.26, 0]} castShadow>
           <cylinderGeometry args={[0.04, 0.04, 0.5, 8]} />
           <meshStandardMaterial color={PALETTE.tableLeg} />
         </mesh>
