@@ -1,7 +1,7 @@
 'use client';
 
 import { Canvas } from '@react-three/fiber';
-import { ContactShadows } from '@react-three/drei';
+import { ContactShadows, OrbitControls } from '@react-three/drei';
 import { CampusEnvironment } from './CampusEnvironment';
 import { CampusHub } from './CampusHub';
 import { CampusCameraController } from './CampusCameraController';
@@ -17,7 +17,8 @@ export function CampusScene() {
     <Canvas
       shadows
       dpr={[1, 1.8]}
-      camera={{ position: [42, 46, 52], fov: 42, near: 0.5, far: 600 }}
+      orthographic
+      camera={{ position: [42, 46, 52], zoom: 34, near: 0.1, far: 600 }}
       onPointerMissed={() => deselect()}
       gl={{ antialias: true }}
     >
@@ -28,6 +29,19 @@ export function CampusScene() {
       {projectList.map((project, index) => (
         <ProjectStudio key={project.id} project={project} index={index} />
       ))}
+      {/* left button stays free for agent/room selection; orbit is right-drag, pan is middle-drag */}
+      <OrbitControls
+        makeDefault
+        enableDamping
+        dampingFactor={0.08}
+        minPolarAngle={Math.PI / 6}
+        maxPolarAngle={Math.PI / 3}
+        minDistance={6}
+        maxDistance={400}
+        minZoom={16}
+        maxZoom={90}
+        mouseButtons={{ LEFT: undefined, MIDDLE: 2, RIGHT: 0 }}
+      />
     </Canvas>
   );
 }

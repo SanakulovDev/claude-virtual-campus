@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useCampusStore } from '../../stores/campusStore';
@@ -15,6 +14,8 @@ interface Shot {
   sig: string;
   camera: THREE.Vector3;
   target: THREE.Vector3;
+  /** orthographic camera.zoom target -- position/target only set the isometric angle, framing is zoom */
+  zoom: number;
 }
 
 function studioWorldCenter(index: number): { center: THREE.Vector3; outward: THREE.Vector3 } {
@@ -43,9 +44,12 @@ function agentWorldPosition(projects: ProjectRow[], agentId: string): THREE.Vect
 }
 
 /** Camera with overview / project-focus / agent-follow modes. Transitions are eased and
- * interruptible: grabbing the orbit controls cancels an in-flight move. */
+ * interruptible: grabbing the orbit controls cancels an in-flight move. OrbitControls
+ * itself lives in CampusScene (rendered once, alongside the orthographic Canvas config);
+ * this controller drives it via the `makeDefault`-registered instance on the R3F store. */
 export function CampusCameraController() {
-  const controlsRef = useRef<OrbitControlsImpl>(null);
+  // `makeDefault` on <OrbitControls> in CampusScene registers the instance here.
+  const controls = useThree((state) => state.controls) as OrbitControlsImpl | null;
   const { camera } = useThree();
   const cameraState = useCampusStore((s) => s.camera);
   const projects = useCampusStore((s) => s.projects);
@@ -58,14 +62,13 @@ export function CampusCameraController() {
 
   // cancel an in-flight transition when the user grabs the controls
   useEffect(() => {
-    const controls = controlsRef.current;
     if (!controls) return undefined;
     const cancel = () => {
       progressRef.current = 1;
     };
     controls.addEventListener('start', cancel);
     return () => controls.removeEventListener('start', cancel);
-  }, []);
+  }, [controls]);
 
   function computeShot(): Shot {
     if (cameraState.mode === 'follow' && cameraState.followedAgentId) {
@@ -77,7 +80,7 @@ export function CampusCameraController() {
         const outward =
           outwardIndex >= 0 ? studioWorldCenter(outwardIndex).outward : new THREE.Vector3(0, 0, 1);
         const cam = pos.clone().add(outward.clone().multiplyScalar(9)).add(new THREE.Vector3(0, 7, 0));
-        return { sig: `follow:${cameraState.followedAgentId}`, camera: cam, target: pos };
+        return { sig: `follow:${cameraState.followedAgentId}`, camera: cam, target: pos, zoom: 78 };
       }
     }
 
@@ -86,7 +89,7 @@ export function CampusCameraController() {
       if (index >= 0) {
         const { center, outward } = studioWorldCenter(index);
         const cam = center.clone().add(outward.clone().multiplyScalar(17)).add(new THREE.Vector3(0, 12, 0));
-        return { sig: `room:${cameraState.focusedProjectId}`, camera: cam, target: center.clone().setY(1.2) };
+        return { sig: `room:${cameraState.focusedProjectId}`, camera: cam, target: center.clone().setY(1.2), zoom: 58 };
       }
     }
 
@@ -100,16 +103,18 @@ export function CampusCameraController() {
     const centroid = points.reduce((acc, p) => acc.add(p), new THREE.Vector3()).multiplyScalar(1 / points.length);
     const spread = Math.max(16, ...points.map((p) => p.distanceTo(centroid))) + 10;
     const dist = spread * 1.7 + 16;
-    // corner-isometric: whole floating island centred, rooms and agents still read big
+    // corner-isometric: whole floating island centred, rooms and agents still read big.
+    // Ortho framing is controlled by zoom (not camera distance), so zoom shrinks as the
+    // campus grows -- same intent as the old distance-scaling, re-expressed for ortho.
     return {
       sig: 'overview',
       camera: centroid.clone().add(new THREE.Vector3(dist * 0.42, dist * 0.72, dist * 0.56)),
       target: centroid.clone().setY(3),
+      zoom: THREE.MathUtils.clamp((34 * 26) / spread, 18, 40),
     };
   }
 
   useFrame((_, delta) => {
-    const controls = controlsRef.current;
     if (!controls) return;
     const shot = computeShot();
 
@@ -122,11 +127,14 @@ export function CampusCameraController() {
     }
 
     const current = shotRef.current;
+    const ortho = camera as THREE.OrthographicCamera;
     if (current && progressRef.current < 1) {
       progressRef.current = Math.min(1, progressRef.current + delta * 1.6);
       const e = easeInOut(progressRef.current);
       camera.position.lerp(current.camera, e * 0.2 + 0.02);
       controls.target.lerp(current.target, e * 0.2 + 0.02);
+      ortho.zoom = THREE.MathUtils.lerp(ortho.zoom, current.zoom, e * 0.2 + 0.02);
+      ortho.updateProjectionMatrix();
     } else if (current && cameraState.mode === 'follow') {
       // keep the pivot on the moving agent, but let the user orbit freely around it
       controls.target.lerp(current.target, Math.min(1, delta * 2));
@@ -134,17 +142,7 @@ export function CampusCameraController() {
     controls.update();
   });
 
-  return (
-    <OrbitControls
-      ref={controlsRef}
-      makeDefault
-      enableDamping
-      dampingFactor={0.08}
-      maxPolarAngle={Math.PI / 2.15}
-      minDistance={6}
-      maxDistance={400}
-    />
-  );
+  return null;
 }
 
 function easeInOut(t: number): number {
