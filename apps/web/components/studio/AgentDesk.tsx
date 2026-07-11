@@ -46,6 +46,37 @@ export function AgentDesk({ position, monitor }: { position: [number, number, nu
         <cylinderGeometry args={[0.06, 0.1, 0.2, 8]} />
         <meshStandardMaterial color={PALETTE.monitor} />
       </mesh>
+
+      {/* flanking side monitors, angled inward toward the main screen */}
+      {[-0.72, 0.72].map((x) => (
+        <group key={x}>
+          <mesh position={[x, 1.4, -0.28]} rotation={[0, x < 0 ? 0.35 : -0.35, 0]} castShadow>
+            <boxGeometry args={[0.55, 0.34, 0.05]} />
+            <meshStandardMaterial color={PALETTE.monitor} roughness={0.5} />
+          </mesh>
+          <mesh position={[x, 1.4, -0.28]} rotation={[0, x < 0 ? 0.35 : -0.35, 0]}>
+            <planeGeometry args={[0.46, 0.26]} />
+            <meshStandardMaterial color={screen} emissive={screen} emissiveIntensity={lit ? 0.5 : 0.05} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* office chair, pushed in beside the desk -- clear of the desktop footprint (|x| > 1.1)
+          and clear of the avatar's stand spot in front of the desk (desk z + 0.95) */}
+      <group position={[1.4, 0, 0.25]}>
+        <mesh position={[0, 0.5, 0]} castShadow>
+          <boxGeometry args={[0.5, 0.08, 0.5]} />
+          <meshStandardMaterial color={PALETTE.reviewFrame} roughness={0.6} />
+        </mesh>
+        <mesh position={[0, 0.8, 0.24]} castShadow>
+          <boxGeometry args={[0.5, 0.6, 0.08]} />
+          <meshStandardMaterial color={PALETTE.reviewFrame} roughness={0.6} />
+        </mesh>
+        <mesh position={[0, 0.26, 0]}>
+          <cylinderGeometry args={[0.04, 0.04, 0.5, 8]} />
+          <meshStandardMaterial color={PALETTE.tableLeg} />
+        </mesh>
+      </group>
     </group>
   );
 }
