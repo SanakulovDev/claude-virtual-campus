@@ -2,16 +2,20 @@
 
 import { Canvas } from '@react-three/fiber';
 import { ContactShadows, OrbitControls } from '@react-three/drei';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { CampusEnvironment } from './CampusEnvironment';
 import { CampusHub } from './CampusHub';
 import { CampusCameraController } from './CampusCameraController';
 import { ProjectStudio } from './ProjectStudio';
 import { useCampusStore } from '../../stores/campusStore';
+import { detectRenderCapability } from '../../lib/renderCapability';
 
 export function CampusScene() {
   const projects = useCampusStore((s) => s.projects);
   const projectList = Object.values(projects);
   const deselect = useCampusStore((s) => s.closeInspector);
+  // Probed once per mount: headless/software-WebGL screenshot pipeline must stay bloom-free.
+  const canBloom = detectRenderCapability() === 'full';
 
   return (
     <Canvas
@@ -29,6 +33,12 @@ export function CampusScene() {
       {projectList.map((project, index) => (
         <ProjectStudio key={project.id} project={project} index={index} />
       ))}
+      {/* gated to real GPUs only -- keeps headless/software-WebGL screenshots clean */}
+      {canBloom && (
+        <EffectComposer>
+          <Bloom intensity={0.6} luminanceThreshold={0.7} mipmapBlur />
+        </EffectComposer>
+      )}
       {/* left button stays free for agent/room selection; orbit is right-drag, pan is middle-drag */}
       <OrbitControls
         makeDefault

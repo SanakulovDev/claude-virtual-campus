@@ -5,6 +5,8 @@ import { RoundedBox, Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import type * as THREE from 'three';
 import { HTML_Z_RANGE, PALETTE } from '../../lib/theme';
+import { Courtyard } from './Courtyard';
+import { buildCampusZone } from '../../lib/campusNav';
 
 function Tree({ position }: { position: [number, number, number] }) {
   return (
@@ -58,15 +60,9 @@ function AreaLabel({ text, y = 1.7 }: { text: string; y?: number }) {
 function SharedAreas() {
   return (
     <group>
-      {/* Coffee Area */}
+      {/* Coffee/Dining -- geometry now supplied by <Courtyard> (dining tables at the same
+          anchor); keep only the label so we don't double-render props on top of it. */}
       <group position={[6, 0, 4]}>
-        <RoundedBox args={[1.6, 0.9, 0.7]} radius={0.06} position={[0, 0.45, 0]} castShadow>
-          <meshStandardMaterial color={PALETTE.studioTrim} roughness={0.9} />
-        </RoundedBox>
-        <mesh position={[0.3, 1.0, 0.1]}>
-          <cylinderGeometry args={[0.1, 0.08, 0.16, 10]} />
-          <meshStandardMaterial color="#f4efe7" />
-        </mesh>
         <AreaLabel text="☕ Coffee Area" />
       </group>
 
@@ -114,12 +110,9 @@ function SharedAreas() {
         <AreaLabel text="🔧 Workshop Bench" />
       </group>
 
-      {/* Exercise Area */}
+      {/* Exercise Area -- geometry now supplied by <Courtyard> (sports court at the same
+          anchor); keep only the label so we don't double-render props on top of it. */}
       <group position={[6, 0, -5]}>
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.11, 0]}>
-          <planeGeometry args={[2.2, 1.4]} />
-          <meshStandardMaterial color="#6f8f9f" roughness={1} />
-        </mesh>
         <AreaLabel text="🏃 Exercise Area" y={0.9} />
       </group>
 
@@ -181,6 +174,7 @@ export function CampusHub() {
         </div>
       </Html>
 
+      <Courtyard onNavGround={buildCampusZone} />
       <SharedAreas />
 
       <Tree position={[13, 0, 6]} />
