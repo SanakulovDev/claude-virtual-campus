@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyRenderer } from './renderCapability';
+import { classifyRenderer, detectRenderCapability } from './renderCapability';
 
 describe('classifyRenderer', () => {
   it('flags software renderers as fallback', () => {
@@ -18,5 +18,11 @@ describe('classifyRenderer', () => {
   it('treats an unknown/blocked renderer string as fallback (headless-safe)', () => {
     expect(classifyRenderer('')).toBe('fallback');
     expect(classifyRenderer('   ')).toBe('fallback');
+  });
+});
+
+describe('detectRenderCapability', () => {
+  it('falls back when no existing Canvas context is available', () => {
+    expect(detectRenderCapability(null)).toBe('fallback');
   });
 });

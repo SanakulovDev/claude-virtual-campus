@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Component, useEffect, useState, type ReactNode } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
 import { ContactShadows, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
+import { UnsignedByteType } from 'three';
 import { CampusEnvironment } from './CampusEnvironment';
 import { CampusHub } from './CampusHub';
 import { CampusCameraController } from './CampusCameraController';
@@ -11,15 +12,53 @@ import { ProjectStudio } from './ProjectStudio';
 import { useCampusStore } from '../../stores/campusStore';
 import { detectRenderCapability } from '../../lib/renderCapability';
 
+class EffectsBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+function OptionalEffects() {
+  const renderer = useThree((state) => state.gl);
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    const canvas = renderer.domElement;
+    const disable = () => setEnabled(false);
+    setEnabled(detectRenderCapability(renderer.getContext()) === 'full');
+    canvas.addEventListener('webglcontextlost', disable);
+    return () => canvas.removeEventListener('webglcontextlost', disable);
+  }, [renderer]);
+
+  if (!enabled) return null;
+
+  return (
+    <>
+      <ContactShadows
+        position={[0, 0.06, 0]}
+        scale={90}
+        blur={2.4}
+        opacity={0.35}
+        far={40}
+        resolution={512}
+      />
+      <EffectComposer multisampling={0} frameBufferType={UnsignedByteType}>
+        <Bloom intensity={0.6} luminanceThreshold={0.7} mipmapBlur />
+      </EffectComposer>
+    </>
+  );
+}
+
 export function CampusScene() {
   const projects = useCampusStore((s) => s.projects);
   const projectList = Object.values(projects);
   const deselect = useCampusStore((s) => s.closeInspector);
-  // Probed once per mount (not per render): headless/software-WebGL pipeline stays bloom-free.
-  // Also gates ContactShadows -- its per-frame render-to-texture washes the whole ortho view
-  // black on software WebGL (SwiftShader), which blanked the screenshot pipeline.
-  const fullFx = useMemo(() => detectRenderCapability() === 'full', []);
-
   return (
     <Canvas
       shadows
@@ -32,18 +71,12 @@ export function CampusScene() {
       <CampusEnvironment />
       <CampusCameraController />
       <CampusHub />
-      {fullFx && (
-        <ContactShadows position={[0, 0.06, 0]} scale={90} blur={2.4} opacity={0.35} far={40} resolution={512} />
-      )}
       {projectList.map((project, index) => (
         <ProjectStudio key={project.id} project={project} index={index} />
       ))}
-      {/* gated to real GPUs only -- keeps headless/software-WebGL screenshots clean */}
-      {fullFx && (
-        <EffectComposer>
-          <Bloom intensity={0.6} luminanceThreshold={0.7} mipmapBlur />
-        </EffectComposer>
-      )}
+      <EffectsBoundary>
+        <OptionalEffects />
+      </EffectsBoundary>
       {/* left button stays free for agent/room selection; orbit is right-drag, pan is middle-drag */}
       <OrbitControls
         makeDefault

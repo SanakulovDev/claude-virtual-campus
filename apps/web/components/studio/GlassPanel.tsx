@@ -1,18 +1,23 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useThree } from '@react-three/fiber';
 import { detectRenderCapability } from '../../lib/renderCapability';
 
 /**
- * Capability-gated glass mesh. `detectRenderCapability()` probes the WebGL renderer once
- * per mount: real GPUs get `meshPhysicalMaterial` transmission (proper refraction), software
+ * Capability-gated glass mesh. The existing Canvas renderer is classified once per mount:
+ * real GPUs get `meshPhysicalMaterial` transmission (proper refraction), software
  * renderers (SwiftShader/llvmpipe/headless) get a cheap frosted `meshStandardMaterial` so
  * screenshots and low-power browsers never pay for transmission passes they can't render well.
  */
 export function GlassPanel(
   props: JSX.IntrinsicElements['mesh'] & { size: [number, number, number]; tint?: string },
 ) {
-  const cap = useMemo(() => detectRenderCapability(), []);
+  const renderer = useThree((state) => state.gl);
+  const cap = useMemo(
+    () => detectRenderCapability(renderer.getContext()),
+    [renderer],
+  );
   const { size, tint = '#bcd4e0', ...mesh } = props;
   return (
     <mesh {...mesh}>

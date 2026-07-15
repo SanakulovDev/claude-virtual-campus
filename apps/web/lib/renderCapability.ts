@@ -1,5 +1,10 @@
 export type RenderCapability = 'full' | 'fallback';
 
+type RendererContext = Pick<
+  WebGLRenderingContext,
+  'getContextAttributes' | 'getExtension' | 'getParameter'
+>;
+
 const SOFTWARE_MARKERS = /swiftshader|software|llvmpipe|microsoft basic render/i;
 
 export function classifyRenderer(
@@ -13,18 +18,19 @@ export function classifyRenderer(
   return SOFTWARE_MARKERS.test(rendererString) ? 'fallback' : 'full';
 }
 
-/** Browser-only probe. Returns 'fallback' on any failure so headless/software WebGL is safe. */
-export function detectRenderCapability(): RenderCapability {
+/**
+ * Classify the Canvas' existing context. Never create a probe context here: constrained
+ * browsers may only provide one viable WebGL context and can evict the real renderer.
+ */
+export function detectRenderCapability(gl: RendererContext | null | undefined): RenderCapability {
   if (typeof window === 'undefined') return 'fallback';
   try {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const lowFx = new URLSearchParams(window.location.search).has('lowfx');
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl') as WebGLRenderingContext | null;
-    if (!gl) return 'fallback';
+    if (reducedMotion || lowFx || !gl || gl.getContextAttributes() === null) return 'fallback';
     const ext = gl.getExtension('WEBGL_debug_renderer_info');
     const renderer = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : '';
-    return classifyRenderer(renderer, { reducedMotion, lowFx });
+    return classifyRenderer(renderer);
   } catch {
     return 'fallback';
   }
