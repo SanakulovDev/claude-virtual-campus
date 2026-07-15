@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Observational hook: fire-and-forget, must never block or fail Claude Code.
+# Observational Codex hook: bounded and fail-open so telemetry never blocks Codex.
 set -u
 
-CAMPUS_URL="${CLAUDE_CAMPUS_URL:-http://localhost:4000}"
+CAMPUS_URL="${CODEX_CAMPUS_URL:-${CAMPUS_URL:-http://localhost:4000}}"
 curl \
   --silent \
   --show-error \
@@ -11,6 +11,6 @@ curl \
   --header "Content-Type: application/json" \
   --header "X-Campus-Token: ${CAMPUS_HOOK_TOKEN:-}" \
   --data-binary @- \
-  "${CAMPUS_URL}/api/claude/events" >/dev/null 2>&1 || true
+  "${CAMPUS_URL}/api/codex/events" >/dev/null 2>&1 || true
 
 exit 0

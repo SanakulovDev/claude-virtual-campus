@@ -35,7 +35,7 @@ beforeEach(() => {
 describe('campusStore', () => {
   it('bootstraps projects and timeline from a snapshot', () => {
     const project = makeProject();
-    const event: TimelineEntry = { id: 'e1', projectId: 'p1', hookEventName: 'Stop', normalizedType: 'stop', toolName: null, receivedAt: new Date().toISOString() };
+    const event: TimelineEntry = { id: 'e1', runtime: 'claude', projectId: 'p1', hookEventName: 'Stop', normalizedType: 'stop', toolName: null, receivedAt: new Date().toISOString() };
     useCampusStore.getState().bootstrapCampus([project], [event]);
     expect(useCampusStore.getState().projects.p1).toEqual(project);
     expect(useCampusStore.getState().timeline).toHaveLength(1);
@@ -63,6 +63,7 @@ describe('campusStore', () => {
     useCampusStore.getState().upsertProject(makeProject());
     useCampusStore.getState().upsertAgent('a1', 'p1', {
       id: 'a1',
+      runtime: 'claude',
       projectId: 'p1',
       externalAgentId: 'main-claude',
       agentType: 'main-claude',
@@ -79,14 +80,14 @@ describe('campusStore', () => {
   });
 
   it('deduplicates timeline events by id', () => {
-    const event: TimelineEntry = { id: 'e1', projectId: 'p1', hookEventName: 'Stop', normalizedType: 'stop', toolName: null, receivedAt: new Date().toISOString() };
+    const event: TimelineEntry = { id: 'e1', runtime: 'claude', projectId: 'p1', hookEventName: 'Stop', normalizedType: 'stop', toolName: null, receivedAt: new Date().toISOString() };
     useCampusStore.getState().addTimelineEvent(event);
     useCampusStore.getState().addTimelineEvent(event);
     expect(useCampusStore.getState().timeline).toHaveLength(1);
   });
 
   it('tracks approval request and resolution', () => {
-    useCampusStore.getState().requestApproval({ id: 'ap1', projectId: 'p1', toolName: 'Bash', safeSummary: 'rm -rf /tmp', commandCategory: 'destructive', status: 'PENDING', requestedAt: new Date().toISOString() });
+    useCampusStore.getState().requestApproval({ id: 'ap1', runtime: 'claude', projectId: 'p1', toolName: 'Bash', safeSummary: 'rm -rf /tmp', commandCategory: 'destructive', status: 'PENDING', requestedAt: new Date().toISOString() });
     expect(useCampusStore.getState().approvals.ap1?.status).toBe('PENDING');
     useCampusStore.getState().resolveApproval('ap1', 'DENIED');
     expect(useCampusStore.getState().approvals.ap1?.status).toBe('DENIED');
@@ -110,6 +111,7 @@ describe('inspector / dock UI behaviour', () => {
     useCampusStore.getState().upsertProject(makeProject());
     useCampusStore.getState().upsertAgent('a1', 'p1', {
       id: 'a1',
+      runtime: 'claude',
       projectId: 'p1',
       externalAgentId: 'main-claude',
       agentType: 'main-claude',

@@ -46,7 +46,7 @@ export function ProjectDock() {
         {list.length === 0 && (
           <p className="px-4 py-4 text-xs leading-relaxed text-slate-400">
             {query ? 'No matching projects.' : (
-              <>No projects yet. Run a Claude Code session with the hook installed, or <code className="rounded bg-slate-100 px-1">pnpm demo:events</code>.</>
+              <>No projects yet. Run a Claude Code or Codex session with campus hooks installed, or <code className="rounded bg-slate-100 px-1">pnpm demo:events</code>.</>
             )}
           </p>
         )}

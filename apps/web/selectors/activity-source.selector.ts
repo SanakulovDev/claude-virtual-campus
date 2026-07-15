@@ -8,7 +8,7 @@ export interface ActivityLine {
   text: string;
   source: AgentActivitySource;
   /** Badge under the line. Null when the agent is plainly idle (nothing to attribute). */
-  sourceLabel: 'Real Claude activity' | 'Ambient activity' | null;
+  sourceLabel: 'Real agent activity' | 'Ambient activity' | null;
 }
 
 function lowerFirst(s: string): string {
@@ -17,7 +17,7 @@ function lowerFirst(s: string): string {
 
 /**
  * One labelled activity line for an agent. Ambient life is always tagged "Ambient activity"
- * so it is never presented as real Claude work; real work is tagged "Real Claude activity".
+ * so it is never presented as real agent work; real work is tagged "Real agent activity".
  */
 export function selectAgentActivityLine(agent: AgentRow, ambient?: AmbientActivity | null): ActivityLine {
   if (ambient) {
@@ -29,6 +29,6 @@ export function selectAgentActivityLine(agent: AgentRow, ambient?: AmbientActivi
   return {
     text: `${agent.displayName} is ${lowerFirst(summarizeAgentAction(agent))}`,
     source: 'real-work',
-    sourceLabel: 'Real Claude activity',
+    sourceLabel: 'Real agent activity',
   };
 }

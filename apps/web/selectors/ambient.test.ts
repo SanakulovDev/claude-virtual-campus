@@ -61,10 +61,10 @@ describe('activity line labelling', () => {
     expect(line.text.startsWith('Lucy is ')).toBe(true);
   });
 
-  it('labels real work as real Claude activity', () => {
+  it('labels real work as real agent activity', () => {
     const line = selectAgentActivityLine(agent({ activity: 'coding', currentFile: '/x/auth.ts', displayName: 'Jarvis' }));
     expect(line.source).toBe('real-work');
-    expect(line.sourceLabel).toBe('Real Claude activity');
+    expect(line.sourceLabel).toBe('Real agent activity');
   });
 
   it('shows no source badge for a plainly idle agent', () => {

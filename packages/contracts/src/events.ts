@@ -5,10 +5,12 @@ import {
   COMMAND_CATEGORIES,
   FILE_CATEGORIES,
   OFFICE_ZONE_KEYS,
+  AGENT_RUNTIMES,
 } from './enums';
 
-export const normalizedClaudeEventSchema = z.object({
+export const normalizedAgentEventSchema = z.object({
   id: z.string(),
+  runtime: z.enum(AGENT_RUNTIMES),
   projectId: z.string(),
   projectModuleId: z.string().nullable(),
   sessionId: z.string(),
@@ -26,10 +28,15 @@ export const normalizedClaudeEventSchema = z.object({
   occurredAt: z.string(),
   safeMetadata: z.record(z.unknown()),
 });
-export type NormalizedClaudeEvent = z.infer<typeof normalizedClaudeEventSchema>;
+export type NormalizedAgentEvent = z.infer<typeof normalizedAgentEventSchema>;
+
+/** Backward-compatible aliases for the original Claude-only contract name. */
+export const normalizedClaudeEventSchema = normalizedAgentEventSchema;
+export type NormalizedClaudeEvent = NormalizedAgentEvent;
 
 export const campusAgentStateSchema = z.object({
   id: z.string(),
+  runtime: z.enum(AGENT_RUNTIMES),
   projectId: z.string(),
   projectModuleId: z.string().nullable(),
   sessionId: z.string().nullable(),

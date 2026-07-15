@@ -1,6 +1,6 @@
 # Architecture
 
-Claude Virtual Campus is a pnpm/Turbo monorepo. The campus itself is TypeScript
+AI Virtual Campus is a pnpm/Turbo monorepo. The campus itself is TypeScript
 (Next.js + NestJS), but that is an implementation detail of the campus — it never
 imposes any requirement on the **monitored** projects, which can be written in any
 language.
@@ -9,8 +9,9 @@ language.
 
 ```mermaid
 flowchart LR
-    CLI[Claude Code CLI]
-    Hooks[Universal Claude hooks]
+    Claude[Claude Code]
+    Codex[Codex]
+    Hooks[Runtime hooks]
     API[NestJS event API]
     Resolver[Project resolver]
     Detector[Technology detector]
@@ -21,7 +22,8 @@ flowchart LR
     Web[Next.js UI]
     Scene[3D campus]
 
-    CLI --> Hooks --> API
+    Claude --> Hooks --> API
+    Codex --> Hooks
     API --> Resolver --> Detector
     API --> Agents
     API --> Normalizer
@@ -31,7 +33,7 @@ flowchart LR
     Normalizer --> WS --> Web --> Scene
 ```
 
-`POST /api/claude/events` → validate (zod) → resolve project (`project-inspector`) →
+`POST /api/claude/events` or `POST /api/codex/events` → validate (zod) → resolve project (`project-inspector`) →
 upsert project/session/agent → resolve the active agent → normalize
 (`event-normalizer`) → persist `ClaudeEvent` (+ `ToolExecution` for tool calls) →
 broadcast over Socket.IO. Orchestration lives in
@@ -47,7 +49,7 @@ packages/
   contracts/          zod schemas, shared TS types, 3D layout + agent identity constants
   project-inspector/  git identity resolution + technology detection (pure)
   event-normalizer/   command/file classification, redaction, normalization (pure)
-  claude-plugin/      hook scripts + installer/uninstaller
+  claude-plugin/      Claude/Codex hook scripts + dual installer/uninstaller (legacy package name)
   config-eslint/      shared eslint config
   config-typescript/  shared tsconfig base
 scripts/
@@ -72,7 +74,7 @@ scripts/
   payloads are never forwarded to the frontend.
 - `apps/web` — Next.js + React Three Fiber. All agent movement/animation is driven by
   agent state from the backend; the only client-generated motion is the clearly-labelled
-  [ambient idle life](../README.md#11-idle-campus-life), which never produces events.
+  [ambient idle life](../README.md#idle-campus-life), which never produces events.
 
 ## The five visual states
 
@@ -90,8 +92,8 @@ states, so agents move on meaningful phase changes rather than on every tool cal
 ## Agent identity resolution
 
 Claude Code hooks fire process-wide, not per-subagent, so there is no dedicated subagent
-identifier in a payload. The campus infers the active agent with a session-scoped stack:
-a `Task` PreToolUse pushes a subagent; `SubagentStop` pops back to the previous agent.
+identifier in a payload. The campus infers the active agent from `Task` PreToolUse and
+`SubagentStop`, preferring the most recently active teammate in that session.
 
 A subagent's stable identity is keyed on `(session + agentType)`, so re-running the same
 kind of subagent — or reconnecting after a restart — reuses the same teammate (same name,
@@ -99,6 +101,12 @@ same desk) instead of spawning a duplicate. Each teammate is assigned a readable
 a curated pool (deterministic, no duplicates within a project) plus a role and short bio
 from `packages/contracts/src/agents.ts`. See [hooks.md](hooks.md) for the hook-event
 mapping this depends on.
+
+Codex provides native `SubagentStart`/`SubagentStop` hooks with explicit `agent_id` and
+`agent_type`, so those identities are direct. Sessions are keyed by `(runtime,
+externalSessionId)`, allowing Claude and Codex to use the same external id without a
+collision. Main agents are distinct (`main-claude` and `main-codex`) when both runtimes
+operate in the same project.
 
 ## Project & module routing
 

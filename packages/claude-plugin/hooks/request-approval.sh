@@ -7,15 +7,14 @@
 set -u
 
 CAMPUS_URL="${CLAUDE_CAMPUS_URL:-http://localhost:4000}"
-INPUT="$(cat)"
-
 RESPONSE="$(curl \
   --silent \
   --show-error \
   --max-time 35 \
   --request POST \
   --header "Content-Type: application/json" \
-  --data "$INPUT" \
+  --header "X-Campus-Token: ${CAMPUS_HOOK_TOKEN:-}" \
+  --data-binary @- \
   "${CAMPUS_URL}/api/claude/approval" 2>/dev/null)" || true
 
 if [ -n "${RESPONSE:-}" ]; then

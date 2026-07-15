@@ -15,6 +15,7 @@ import type { AgentRow, TimelineEntry } from '../lib/types';
 function agent(activity: AgentActivity, extra: Partial<AgentRow> = {}): AgentRow {
   return {
     id: extra.id ?? 'a1',
+    runtime: 'claude',
     projectId: 'p1',
     externalAgentId: extra.externalAgentId ?? 'main-claude',
     agentType: 'main-claude',
@@ -118,6 +119,7 @@ describe('activity summaries (human readable, no raw payloads)', () => {
   it('summarizes timeline entries without exposing hook names', () => {
     const entry: TimelineEntry = {
       id: 'e1',
+      runtime: 'claude',
       projectId: 'p1',
       hookEventName: 'PreToolUse',
       normalizedType: 'command_run',

@@ -39,4 +39,9 @@ describe('stripOurSettings', () => {
     const result = stripOurSettings(existing);
     expect(result.hooks).toBeUndefined();
   });
+
+  it('removes absolute Codex hook commands', () => {
+    const existing = { hooks: { Stop: [{ hooks: [{ type: 'command', command: "'/tmp/my project/.codex/hooks/send-event.sh'" }] }] } };
+    expect(stripOurSettings(existing).hooks).toBeUndefined();
+  });
 });

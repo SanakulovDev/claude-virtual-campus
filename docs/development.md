@@ -42,6 +42,12 @@ pnpm test:redesign  # headless-browser UI smoke -> artifacts/redesign/*.png
 pnpm screenshots    # capture docs/images/*.png from a real browser (resets the dev DB)
 ```
 
+If ports 4000/3100 are already in use, run the smoke test on isolated ports:
+
+```bash
+E2E_API_PORT=4100 E2E_WEB_PORT=3200 CLAUDE_CAMPUS_URL=http://localhost:4100 pnpm test:e2e
+```
+
 Database helpers:
 
 ```bash
@@ -64,7 +70,11 @@ docker compose down            # stop
 The API container runs `prisma migrate deploy` on start and binds `0.0.0.0` (via
 `API_HOST`) so its published port is reachable; the local `pnpm dev` path keeps the secure
 `127.0.0.1` default. All services use `restart: unless-stopped`, so the campus returns after
-a reboot. Rebuild with `docker compose up -d --build` after changing the source.
+a reboot. Docker publishes the web app at `http://localhost:3200`, separate from the local
+Next.js development server on `3100`; the API explicitly allows both local origins. Override
+`CAMPUS_DOCKER_WEB_PORT` and the comma-separated `CAMPUS_DOCKER_WEB_ORIGIN` allowlist
+together if needed. Rebuild with
+`docker compose up -d --build` after changing the source.
 
 `pnpm db:up` still starts only Postgres, for the `pnpm dev` workflow.
 
@@ -80,7 +90,7 @@ pnpm demo:attention # permission/approval demonstration
 
 Each simulator creates a real temporary git repository with realistic files
 (`composer.json` + `artisan`, `pyproject.toml`, `go.mod`, …) and POSTs the exact hook
-payload sequence to the real `/api/claude/events` endpoint — there is no separate fake
+payload sequence to the real `/api/claude/events` endpoint—there is no separate fake
 frontend path.
 
 ## Connecting a project
@@ -93,7 +103,8 @@ pnpm campus:install "/Users/me/Developer/My Project"   # paths with spaces are f
 pnpm campus:team    ~/Developer/my-project             # optional team roster
 ```
 
-Then run `claude` inside that project. See [hooks.md](hooks.md) for details.
+Then run `claude` or `codex` inside that project. The installer configures both runtimes;
+Codex project hooks must be reviewed with `/hooks`. See [hooks.md](hooks.md) for details.
 
 ## Before calling anything done
 

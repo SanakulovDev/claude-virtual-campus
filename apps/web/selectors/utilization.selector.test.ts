@@ -6,6 +6,7 @@ const now = Date.UTC(2026, 6, 12, 12, 0, 0);
 function entry(over: Partial<TimelineEntry>): TimelineEntry {
   return {
     id: Math.random().toString(36),
+    runtime: 'claude',
     projectId: 'p1',
     agentId: 'a1',
     sessionId: 's1',

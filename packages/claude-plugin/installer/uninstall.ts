@@ -20,10 +20,20 @@ export function uninstall(targetDirArg: string): void {
   const claudeDir = path.join(targetDir, '.claude');
   const hooksDir = path.join(claudeDir, 'hooks');
   const settingsPath = path.join(claudeDir, 'settings.json');
+  const codexDir = path.join(targetDir, '.codex');
+  const codexHooksDir = path.join(codexDir, 'hooks');
+  const codexSettingsPath = path.join(codexDir, 'hooks.json');
   const changedFiles: string[] = [];
 
   for (const filename of HOOK_FILENAMES) {
     const file = path.join(hooksDir, filename);
+    if (existsSync(file)) {
+      unlinkSync(file);
+      changedFiles.push(file);
+    }
+  }
+  for (const filename of HOOK_FILENAMES) {
+    const file = path.join(codexHooksDir, filename);
     if (existsSync(file)) {
       unlinkSync(file);
       changedFiles.push(file);
@@ -45,6 +55,24 @@ export function uninstall(targetDirArg: string): void {
       writeFileSync(backupPath, raw);
       writeFileSync(settingsPath, strippedJson);
       changedFiles.push(backupPath, settingsPath);
+    }
+  }
+
+  if (existsSync(codexSettingsPath)) {
+    const raw = readFileSync(codexSettingsPath, 'utf8');
+    let settings: ClaudeSettings;
+    try {
+      settings = JSON.parse(raw) as ClaudeSettings;
+    } catch {
+      fail(`${codexSettingsPath} is not valid JSON; leaving it untouched.`);
+    }
+    const stripped = stripOurSettings(settings);
+    const strippedJson = `${JSON.stringify(stripped, null, 2)}\n`;
+    if (strippedJson !== raw) {
+      const backupPath = `${codexSettingsPath}.backup-${Date.now()}`;
+      writeFileSync(backupPath, raw);
+      writeFileSync(codexSettingsPath, strippedJson);
+      changedFiles.push(backupPath, codexSettingsPath);
     }
   }
 

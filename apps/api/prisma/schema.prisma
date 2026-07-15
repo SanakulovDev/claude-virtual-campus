@@ -77,7 +77,8 @@ enum SessionStatus {
 
 model ClaudeSession {
   id                String        @id @default(cuid())
-  externalSessionId String        @unique
+  externalSessionId String
+  runtime           String        @default("claude")
   projectId         String
   project           Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectModuleId   String?
@@ -94,6 +95,8 @@ model ClaudeSession {
   tasks  Task[]
   events ClaudeEvent[]
   toolExecutions ToolExecution[]
+
+  @@unique([runtime, externalSessionId])
 }
 
 model AgentDefinition {
@@ -108,6 +111,7 @@ model ProjectAgent {
   projectId        String
   project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   externalAgentId  String?
+  runtime          String    @default("claude")
   agentType        String
   displayName      String
   generatedName    String?
@@ -119,6 +123,10 @@ model ProjectAgent {
   activity         String    @default("idle")
   assignedDeskKey  String?
   currentZoneKey   String    @default("entrance")
+  currentTool      String?
+  currentFile      String?
+  currentCommandSummary String?
+  commandCategory  String?
   currentTaskId    String?
   currentSessionId String?
   session          ClaudeSession? @relation(fields: [currentSessionId], references: [id])
@@ -171,6 +179,7 @@ model ClaudeEvent {
   sessionId       String
   session         ClaudeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   agentId         String
+  runtime         String   @default("claude")
   agent           ProjectAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
   hookEventName   String
   toolName        String?
@@ -198,6 +207,7 @@ model ToolExecution {
   agentId         String
   agent           ProjectAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
   toolName        String
+  externalToolUseId String?
   commandCategory String?
   fileCategory    String?
   status          ToolExecutionStatus @default(RUNNING)
@@ -206,6 +216,8 @@ model ToolExecution {
   outputMetadata  Json?
   startedAt       DateTime @default(now())
   completedAt     DateTime?
+
+  @@index([sessionId, externalToolUseId])
 }
 
 enum ApprovalStatus {
@@ -220,6 +232,7 @@ model ApprovalRequest {
   projectId     String
   project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   sessionExternalId String
+  runtime       String         @default("claude")
   toolName      String
   safeSummary   String
   commandCategory String?

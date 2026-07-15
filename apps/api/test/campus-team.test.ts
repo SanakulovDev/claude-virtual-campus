@@ -41,4 +41,13 @@ describe('readTeamConfig', () => {
     writeConfig(JSON.stringify({ team: 'not-an-array' }));
     expect(readTeamConfig(dir).overrides.size).toBe(0);
   });
+
+  it('prefers a Codex roster and falls back to the shared Claude roster', () => {
+    writeConfig(JSON.stringify({ team: [{ agentType: 'plan', name: 'Shared' }] }));
+    expect(readTeamConfig(dir, 'codex').overrides.get('plan')?.name).toBe('Shared');
+
+    mkdirSync(path.join(dir, '.codex'), { recursive: true });
+    writeFileSync(path.join(dir, '.codex', 'campus.json'), JSON.stringify({ team: [{ agentType: 'plan', name: 'Codex' }] }));
+    expect(readTeamConfig(dir, 'codex').overrides.get('plan')?.name).toBe('Codex');
+  });
 });

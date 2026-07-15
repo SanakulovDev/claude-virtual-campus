@@ -9,6 +9,12 @@ describe('redactSensitiveData', () => {
     expect(result.normal).toBe('ok');
   });
 
+  it('redacts secret-looking command flags and environment assignments', () => {
+    expect(redactSensitiveData('deploy --token abc123 API_KEY=supersecret')).toBe(
+      'deploy --token [REDACTED] API_KEY=[REDACTED]',
+    );
+  });
+
   it('redacts bearer tokens embedded in strings', () => {
     const result = redactSensitiveData({ header: 'Authorization: Bearer abc.def.ghi' }) as Record<string, unknown>;
     expect(result.header).not.toContain('abc.def.ghi');

@@ -70,9 +70,10 @@ export function projectAccent(projectKey: string): string {
   return `hsl(${hue}, 55%, 60%)`;
 }
 
-/** Simple role tint for subagent avatars; main Claude stays neutral. */
+/** Simple role tint for subagent avatars; main runtime agents stay neutral. */
 export function agentBodyColor(agentType: string, externalAgentId: string | null): string {
-  if (externalAgentId === 'main-claude' || agentType === 'main-claude') return PALETTE.avatarBody;
+  if (externalAgentId === 'main-claude' || externalAgentId === 'main-codex' ||
+      agentType === 'main-claude' || agentType === 'main-codex') return PALETTE.avatarBody;
   const roleColors: Record<string, string> = {
     'backend-developer': '#cbb28f',
     'frontend-developer': '#a9c1d6',

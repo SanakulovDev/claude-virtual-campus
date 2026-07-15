@@ -7,6 +7,9 @@ export function classifyRenderer(
   opts: { reducedMotion?: boolean; lowFx?: boolean } = {},
 ): RenderCapability {
   if (opts.reducedMotion || opts.lowFx) return 'fallback';
+  // Unknown/blocked renderer (e.g. headless probe can't read WEBGL_debug_renderer_info) is
+  // treated as fallback -- assuming 'full' would run bloom on software WebGL and render black.
+  if (!rendererString.trim()) return 'fallback';
   return SOFTWARE_MARKERS.test(rendererString) ? 'fallback' : 'full';
 }
 

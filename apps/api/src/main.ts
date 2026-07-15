@@ -9,6 +9,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { corsOrigins } from './cors';
 import { SessionsService } from './sessions/sessions.service';
 
 const MAX_JSON_BODY_BYTES = '512kb';
@@ -17,7 +18,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
   const { json } = await import('express');
   app.use(json({ limit: MAX_JSON_BODY_BYTES }));
-  app.enableCors({ origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000' });
+  app.enableCors({ origin: corsOrigins() });
 
   await app.get(SessionsService).markStaleSessionsDisconnected();
 

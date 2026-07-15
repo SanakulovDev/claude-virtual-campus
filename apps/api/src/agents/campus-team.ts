@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { campusTeamConfigSchema } from '@campus/contracts';
+import type { AgentRuntime } from '@campus/contracts';
 import type { TeamOverride } from './agents.service';
 
 const MAX_BYTES = 64 * 1024;
@@ -17,22 +18,32 @@ const EMPTY: TeamConfig = { overrides: new Map() };
 const cache = new Map<string, { mtimeMs: number; value: TeamConfig }>();
 
 /**
- * Reads a project's optional `.claude/campus.json`. Always fail-open: a missing, oversized,
- * unreadable or invalid file yields an empty config -- it must never block event handling.
+ * Reads a project's optional runtime-specific campus.json. Codex falls back to the Claude
+ * file so one shared roster remains possible. Invalid files never block event handling.
  */
-export function readTeamConfig(rootPath: string): TeamConfig {
-  const file = path.join(rootPath, '.claude', 'campus.json');
+export function readTeamConfig(rootPath: string, runtime: AgentRuntime = 'claude'): TeamConfig {
+  const candidates = runtime === 'codex'
+    ? [path.join(rootPath, '.codex', 'campus.json'), path.join(rootPath, '.claude', 'campus.json')]
+    : [path.join(rootPath, '.claude', 'campus.json')];
+  for (const file of candidates) {
+    const value = readConfigFile(file);
+    if (value) return value;
+  }
+  return EMPTY;
+}
+
+function readConfigFile(file: string): TeamConfig | null {
   let stat;
   try {
-    if (!existsSync(file)) return EMPTY;
+    if (!existsSync(file)) return null;
     stat = statSync(file);
-    if (!stat.isFile() || stat.size > MAX_BYTES) return EMPTY;
+    if (!stat.isFile() || stat.size > MAX_BYTES) return null;
   } catch {
-    return EMPTY;
+    return null;
   }
 
   const cached = cache.get(file);
-  if (cached && cached.mtimeMs === stat.mtimeMs) return cached.value;
+  if (cached && cached.mtimeMs === stat.mtimeMs) return cached.value === EMPTY ? null : cached.value;
 
   let value: TeamConfig = EMPTY;
   try {
@@ -49,5 +60,5 @@ export function readTeamConfig(rootPath: string): TeamConfig {
   }
 
   cache.set(file, { mtimeMs: stat.mtimeMs, value });
-  return value;
+  return value === EMPTY ? null : value;
 }

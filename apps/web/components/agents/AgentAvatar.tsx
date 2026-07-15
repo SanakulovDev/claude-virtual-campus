@@ -114,7 +114,8 @@ export function AgentAvatar({ agent, visualState, ambient, target, restFacingY, 
 
   const targetVec = useMemo(() => new THREE.Vector3(...target), [target]);
   const bodyColor = agentBodyColor(agent.agentType, agent.externalAgentId);
-  const isMain = agent.externalAgentId === 'main-claude' || agent.agentType === 'main-claude';
+  const isMain = agent.externalAgentId === 'main-claude' || agent.externalAgentId === 'main-codex' ||
+    agent.agentType === 'main-claude' || agent.agentType === 'main-codex';
   const accessory = profileForAgentType(agent.agentType).accessory;
   const hairColor = HAIR_COLORS[hashString(agent.id) % HAIR_COLORS.length]!;
   const hairStyle = hashString(agent.id + 'h') % 3;
@@ -277,7 +278,7 @@ export function AgentAvatar({ agent, visualState, ambient, target, restFacingY, 
             )}
           </group>
         )}
-        {/* main-claude gets a subtle crown ring */}
+        {/* main runtime agents get a subtle crown ring */}
         {isMain && (
           <mesh position={[0, 1.86, 0]}>
             <torusGeometry args={[0.16, 0.03, 8, 16]} />

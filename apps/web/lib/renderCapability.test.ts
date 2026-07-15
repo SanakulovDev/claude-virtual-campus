@@ -15,4 +15,8 @@ describe('classifyRenderer', () => {
     expect(classifyRenderer('Apple M2', { reducedMotion: true })).toBe('fallback');
     expect(classifyRenderer('Apple M2', { lowFx: true })).toBe('fallback');
   });
+  it('treats an unknown/blocked renderer string as fallback (headless-safe)', () => {
+    expect(classifyRenderer('')).toBe('fallback');
+    expect(classifyRenderer('   ')).toBe('fallback');
+  });
 });

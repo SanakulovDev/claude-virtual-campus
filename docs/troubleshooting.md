@@ -2,16 +2,17 @@
 
 ## The project does not appear
 
-The room appears after the first Claude hook event. Make sure the project is installed and
-you have actually started Claude in it:
+The room appears after the first Claude or Codex hook event. Make sure the project is installed and
+you have started one of them in it:
 
 ```bash
 pnpm campus:install /absolute/path/to/project
 cd /absolute/path/to/project
 claude
+# or: codex
 ```
 
-Then give Claude a task. Confirm the API is up:
+Then give the agent a task. Confirm the API is up:
 
 ```bash
 curl http://localhost:4000/api/health
@@ -21,11 +22,14 @@ Confirm `<project>/.claude/settings.json` has the `hooks` block (re-run
 `pnpm campus:install <path>`), and that `CLAUDE_CAMPUS_URL` points at a running API
 (defaults to `http://localhost:4000`).
 
-## Only Claude appears (no teammates)
+For Codex, confirm `<project>/.codex/hooks.json` exists, `CODEX_CAMPUS_URL` is correct,
+and open `/hooks` to review/trust the project hook definitions.
 
-The task did not start any subagents, so there is only the main Claude agent to show. The
-campus does not invent working agents — it only visualizes the real agents Claude Code
-starts. Ask Claude to work as a team (see the multi-agent example in the README), or use a
+## Only the main agent appears (no teammates)
+
+The task did not start any subagents, so there is only the main runtime agent to show. The
+campus does not invent working agents—it only visualizes real Claude/Codex agents.
+Ask the coding agent to work as a team (see the multi-agent example in the README), or use a
 `.claude/campus.json` roster to pre-label the teammates it will start.
 
 ## The database is unavailable
@@ -39,15 +43,16 @@ The campus needs Postgres (Docker, host port 5433 by default).
 
 ## The campus is offline
 
-Claude Code continues working normally — the observational hooks fail open. When the campus
-comes back, new events flow again. In-flight approval requests fall back to Claude Code's
+Claude Code and Codex continue working normally—the observational hooks fail open. When the campus
+comes back, new events flow again. In-flight approval requests fall back to the coding agent's
 own default permission handling if the API is unreachable.
 
 ## Ports already in use
 
-This repo defaults to Postgres `5433` and web `3100` specifically to avoid clashing with
-other local projects. Change `.env` and `docker-compose.yml` together if you need different
-ports.
+Local development uses web port `3100`; Docker publishes its web container on `3200`, so
+both workflows can coexist. Use `WEB_PORT`/`CORS_ORIGIN` for local development, or set
+`CAMPUS_DOCKER_WEB_PORT` and the comma-separated `CAMPUS_DOCKER_WEB_ORIGIN` allowlist
+together for Docker. Postgres uses host port `5433` and the API uses `4000` in both workflows.
 
 ## The approval hook seems to hang
 
@@ -57,6 +62,6 @@ permission handling takes over.
 
 ## Agents look duplicated / renamed unexpectedly
 
-Each teammate's identity is keyed on `(session + agentType)` and its name is persisted, so
-restarts and reconnects reuse the same teammate. You can rename any agent from the inspector
+Claude teammates are keyed on `(session + agentType)`; Codex teammates use its explicit
+`agent_id`. Names are persisted, so restarts and reconnects reuse the same teammate. You can rename any agent from the inspector
 (the raw ids stay in **Developer details**); "Reset name" restores the generated name.

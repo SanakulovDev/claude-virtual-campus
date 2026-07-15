@@ -16,6 +16,12 @@ export interface ClaudeSettings {
 
 const OUR_HOOK_COMMANDS = new Set(['.claude/hooks/send-event.sh', '.claude/hooks/request-approval.sh']);
 
+function isOurHookCommand(command: string): boolean {
+  return OUR_HOOK_COMMANDS.has(command) ||
+    command.includes('/.codex/hooks/send-event.sh') ||
+    command.includes('/.codex/hooks/request-approval.sh');
+}
+
 function sameGroup(a: HookMatcherGroup, b: HookMatcherGroup): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
@@ -49,7 +55,7 @@ export function stripOurSettings(existing: ClaudeSettings): ClaudeSettings {
   const hooks: Record<string, HookMatcherGroup[]> = {};
   for (const [eventName, groups] of Object.entries(existing.hooks)) {
     const cleanedGroups = groups
-      .map((group) => ({ ...group, hooks: group.hooks.filter((h) => !OUR_HOOK_COMMANDS.has(h.command)) }))
+      .map((group) => ({ ...group, hooks: group.hooks.filter((h) => !isOurHookCommand(h.command)) }))
       .filter((group) => group.hooks.length > 0);
     if (cleanedGroups.length > 0) {
       hooks[eventName] = cleanedGroups;

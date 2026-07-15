@@ -16,7 +16,9 @@ export function CampusScene() {
   const projectList = Object.values(projects);
   const deselect = useCampusStore((s) => s.closeInspector);
   // Probed once per mount (not per render): headless/software-WebGL pipeline stays bloom-free.
-  const canBloom = useMemo(() => detectRenderCapability() === 'full', []);
+  // Also gates ContactShadows -- its per-frame render-to-texture washes the whole ortho view
+  // black on software WebGL (SwiftShader), which blanked the screenshot pipeline.
+  const fullFx = useMemo(() => detectRenderCapability() === 'full', []);
 
   return (
     <Canvas
@@ -30,12 +32,14 @@ export function CampusScene() {
       <CampusEnvironment />
       <CampusCameraController />
       <CampusHub />
-      <ContactShadows position={[0, 0.06, 0]} scale={90} blur={2.4} opacity={0.35} far={40} resolution={512} />
+      {fullFx && (
+        <ContactShadows position={[0, 0.06, 0]} scale={90} blur={2.4} opacity={0.35} far={40} resolution={512} />
+      )}
       {projectList.map((project, index) => (
         <ProjectStudio key={project.id} project={project} index={index} />
       ))}
       {/* gated to real GPUs only -- keeps headless/software-WebGL screenshots clean */}
-      {canBloom && (
+      {fullFx && (
         <EffectComposer>
           <Bloom intensity={0.6} luminanceThreshold={0.7} mipmapBlur />
         </EffectComposer>

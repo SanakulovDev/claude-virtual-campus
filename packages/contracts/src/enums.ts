@@ -102,8 +102,13 @@ export const TECHNOLOGY_CATEGORIES = [
 ] as const;
 export type TechnologyCategory = (typeof TECHNOLOGY_CATEGORIES)[number];
 
+/** Coding-agent runtimes whose lifecycle events can drive the campus. */
+export const AGENT_RUNTIMES = ['claude', 'codex'] as const;
+export type AgentRuntime = (typeof AGENT_RUNTIMES)[number];
+
 export const AGENT_TYPES = [
   'main-claude',
+  'main-codex',
   'explore',
   'plan',
   'general-purpose',

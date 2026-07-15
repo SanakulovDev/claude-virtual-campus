@@ -1,6 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { ApprovalRequestBody, HookDecisionResponse } from '@campus/contracts';
+import type {
+  AgentRuntime,
+  ApprovalRequestBody,
+  ClaudeHookDecisionResponse,
+  CodexHookDecisionResponse,
+  HookDecisionResponse,
+} from '@campus/contracts';
 import { SOCKET_EVENTS } from '@campus/contracts';
+import { redactSensitiveData } from '@campus/event-normalizer';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectResolverService } from '../project-resolver/project-resolver.service';
 import { ProjectsService } from '../projects/projects.service';
@@ -33,13 +40,15 @@ export class ApprovalsService {
    * commands are persisted, surfaced to the UI, and block until allow/deny/timeout --
    * timeout always resolves to deny, never to allow (spec section 10).
    */
-  async requestApproval(body: ApprovalRequestBody): Promise<HookDecisionResponse> {
+  async requestApproval(body: ApprovalRequestBody, runtime: AgentRuntime): Promise<HookDecisionResponse | null> {
     const command = typeof body.tool_input?.command === 'string' ? body.tool_input.command : '';
     const classification = body.tool_name === 'Bash' ? this.commands.classify(command) : null;
     const requiresApproval = classification?.isDestructive ?? false;
 
     if (!requiresApproval) {
-      return allowDecision();
+      // Empty stdout delegates to the coding agent's normal approval policy. Returning
+      // "allow" here would silently bypass unrelated, non-destructive approvals.
+      return null;
     }
 
     const resolved = await this.resolver.resolve(body.cwd);
@@ -50,8 +59,11 @@ export class ApprovalsService {
       data: {
         projectId: project.id,
         sessionExternalId: body.session_id,
+        runtime,
         toolName: body.tool_name,
-        safeSummary: command ? `Run: ${command.slice(0, 200)}` : `Use ${body.tool_name}`,
+        safeSummary: command
+          ? `Run: ${String(redactSensitiveData(command)).slice(0, 200)}`
+          : `Use ${body.tool_name}`,
         commandCategory: classification?.category ?? null,
         timeoutAt,
       },
@@ -63,32 +75,61 @@ export class ApprovalsService {
       await sleep(POLL_INTERVAL_MS);
       const current = await this.prisma.approvalRequest.findUnique({ where: { id: request.id } });
       if (current && current.status !== 'PENDING') {
-        return current.status === 'ALLOWED' ? allowDecision() : denyDecision('Denied by user');
+        return current.status === 'ALLOWED' ? allowDecision(runtime) : denyDecision(runtime, 'Denied by user');
       }
     }
 
-    await this.prisma.approvalRequest.update({ where: { id: request.id }, data: { status: 'TIMED_OUT', resolvedAt: new Date() } });
+    const timedOut = await this.prisma.approvalRequest.updateMany({
+      where: { id: request.id, status: 'PENDING' },
+      data: { status: 'TIMED_OUT', resolvedAt: new Date() },
+    });
+    if (timedOut.count === 0) {
+      const resolved = await this.prisma.approvalRequest.findUnique({ where: { id: request.id } });
+      return resolved?.status === 'ALLOWED'
+        ? allowDecision(runtime)
+        : denyDecision(runtime, 'Denied by user');
+    }
     this.realtime.emitToProject(project.id, SOCKET_EVENTS.approvalResolved, { id: request.id, status: 'TIMED_OUT' });
-    return denyDecision('Approval timed out');
+    return denyDecision(runtime, 'Approval timed out');
   }
 
   async resolve(approvalId: string, decision: 'ALLOWED' | 'DENIED') {
     const existing = await this.prisma.approvalRequest.findUnique({ where: { id: approvalId } });
     if (!existing) throw new NotFoundException(`Approval request ${approvalId} not found`);
     if (existing.status !== 'PENDING') return existing;
-    const updated = await this.prisma.approvalRequest.update({
-      where: { id: approvalId },
+    const result = await this.prisma.approvalRequest.updateMany({
+      where: { id: approvalId, status: 'PENDING' },
       data: { status: decision, resolvedAt: new Date() },
     });
-    this.realtime.emitToProject(updated.projectId, SOCKET_EVENTS.approvalResolved, updated);
+    const updated = await this.prisma.approvalRequest.findUnique({ where: { id: approvalId } });
+    if (!updated) throw new NotFoundException(`Approval request ${approvalId} not found`);
+    if (result.count > 0) this.realtime.emitToProject(updated.projectId, SOCKET_EVENTS.approvalResolved, updated);
     return updated;
   }
 }
 
-function allowDecision(): HookDecisionResponse {
-  return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow' } };
+function allowDecision(runtime: AgentRuntime): HookDecisionResponse {
+  if (runtime === 'codex') {
+    const response: CodexHookDecisionResponse = {
+      hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'allow' } },
+    };
+    return response;
+  }
+  const response: ClaudeHookDecisionResponse = {
+    hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow' },
+  };
+  return response;
 }
 
-function denyDecision(reason: string): HookDecisionResponse {
-  return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason } };
+function denyDecision(runtime: AgentRuntime, reason: string): HookDecisionResponse {
+  if (runtime === 'codex') {
+    const response: CodexHookDecisionResponse = {
+      hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'deny', message: reason } },
+    };
+    return response;
+  }
+  const response: ClaudeHookDecisionResponse = {
+    hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason },
+  };
+  return response;
 }

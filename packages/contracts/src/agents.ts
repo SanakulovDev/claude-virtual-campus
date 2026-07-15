@@ -1,15 +1,15 @@
 import { z } from 'zod';
-import type { AgentType } from './enums';
+import type { AgentRuntime, AgentType } from './enums';
 
 /**
  * Presentation identity for agents. The campus never invents working agents -- it only
- * ever visualizes the real main Claude and the real subagents Claude Code starts. These
+ * ever visualizes real Claude/Codex agents and the real subagents they start. These
  * tables give whatever agent types actually appear a human-readable name, a role label,
  * a short bio and a role accessory so the office reads like a team of teammates instead
  * of `subagent-abc`. Nothing here changes agent behaviour or grants any permission.
  */
 
-/** Whether an agent's currently shown activity is real Claude work or client-side idle life. */
+/** Whether an agent's currently shown activity is real agent work or client-side idle life. */
 export type AgentActivitySource = 'real-work' | 'ambient-idle';
 
 /** Curated pool of readable Uzbek first names, assigned deterministically per project. */
@@ -38,9 +38,11 @@ export const AGENT_NAME_POOL = [
   'Laylo',
 ] as const;
 
-/** The main-claude agent is always this fixed identity, never drawn from the pool. */
+/** Main runtime agents use fixed identities and are never drawn from the pool. */
 export const MAIN_CLAUDE_NAME = 'Claude';
+export const MAIN_CODEX_NAME = 'Codex';
 export const MAIN_CLAUDE_ROLE = 'Team Lead';
+export const MAIN_CODEX_ROLE = 'Team Lead';
 
 /** Role accessories the low-poly avatar can add without a whole separate model. */
 export const AGENT_ACCESSORIES = ['none', 'crown', 'notebook', 'headphones', 'clipboard', 'glasses', 'shield', 'tablet'] as const;
@@ -55,6 +57,7 @@ interface AgentProfile {
 /** Role label + short bio + avatar accessory for every known agent type. */
 export const AGENT_PROFILES: Record<AgentType, AgentProfile> = {
   'main-claude': { role: MAIN_CLAUDE_ROLE, bio: 'Coordinates the team and delivers the final result.', accessory: 'crown' },
+  'main-codex': { role: MAIN_CODEX_ROLE, bio: 'Coordinates the team and delivers the final result.', accessory: 'crown' },
   explore: { role: 'Researcher', bio: 'Explores the codebase and gathers the context the team needs.', accessory: 'glasses' },
   plan: { role: 'Planner', bio: 'Breaks large tasks into clear steps and coordinates the team.', accessory: 'notebook' },
   'general-purpose': { role: 'Engineer', bio: 'Takes on whatever the task needs, following the project’s conventions.', accessory: 'headphones' },
@@ -69,8 +72,19 @@ export const AGENT_PROFILES: Record<AgentType, AgentProfile> = {
   'devops-engineer': { role: 'DevOps Engineer', bio: 'Handles builds, pipelines and deployment.', accessory: 'tablet' },
   'infrastructure-engineer': { role: 'Infrastructure Engineer', bio: 'Manages infrastructure and environments.', accessory: 'tablet' },
   'documentation-agent': { role: 'Documentation Agent', bio: 'Keeps docs clear and up to date.', accessory: 'notebook' },
-  'unknown-agent': { role: 'Teammate', bio: 'A specialist teammate Claude Code started for this task.', accessory: 'none' },
+  'unknown-agent': { role: 'Teammate', bio: 'A specialist teammate the coding agent started for this task.', accessory: 'none' },
 };
+
+export function mainAgentIdentity(runtime: AgentRuntime) {
+  return runtime === 'codex'
+    ? { externalId: 'main-codex', agentType: 'main-codex' as const, name: MAIN_CODEX_NAME, role: MAIN_CODEX_ROLE }
+    : { externalId: 'main-claude', agentType: 'main-claude' as const, name: MAIN_CLAUDE_NAME, role: MAIN_CLAUDE_ROLE };
+}
+
+export function isMainAgent(agent: { externalAgentId?: string | null; agentType?: string | null }): boolean {
+  return agent.externalAgentId === 'main-claude' || agent.externalAgentId === 'main-codex' ||
+    agent.agentType === 'main-claude' || agent.agentType === 'main-codex';
+}
 
 /** Safe profile for any agent type, including ones not in the table. */
 export function profileForAgentType(agentType: string): AgentProfile {
@@ -96,9 +110,8 @@ export function pickAgentName(usedNames: Iterable<string>): string {
 }
 
 /**
- * Optional `<project>/.claude/campus.json`. Presentation only -- it renames/relabels the
- * teammates that Claude Code actually starts. It never grants permissions and never creates
- * a working agent that Claude did not start.
+ * Optional `<project>/.claude/campus.json` or `<project>/.codex/campus.json`.
+ * Presentation only: it never grants permissions or creates a working agent.
  */
 export const campusTeamConfigSchema = z.object({
   projectName: z.string().optional(),
@@ -114,7 +127,7 @@ export const campusTeamConfigSchema = z.object({
 });
 export type CampusTeamConfig = z.infer<typeof campusTeamConfigSchema>;
 
-/** Ambient idle activities. Purely visual client-side life -- never real Claude work. */
+/** Ambient idle activities. Purely visual client-side life -- never real agent work. */
 export const AMBIENT_ACTIVITIES = [
   { key: 'coffee', label: 'taking a coffee break', area: 'Coffee Area' },
   { key: 'stretch', label: 'stretching', area: 'Exercise Area' },

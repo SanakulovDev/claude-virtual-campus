@@ -1,17 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   AGENT_TYPES,
-  MAIN_CLAUDE_NAME,
-  MAIN_CLAUDE_ROLE,
   SOCKET_EVENTS,
+  mainAgentIdentity,
   pickAgentName,
   profileForAgentType,
+  type AgentRuntime,
   type AgentType,
 } from '@campus/contracts';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
-
-const MAIN_AGENT_EXTERNAL_ID = 'main-claude';
 
 function coerceAgentType(candidate: string | undefined): AgentType {
   if (candidate && (AGENT_TYPES as readonly string[]).includes(candidate)) {
@@ -20,7 +18,7 @@ function coerceAgentType(candidate: string | undefined): AgentType {
   return candidate ? 'general-purpose' : 'unknown-agent';
 }
 
-/** Optional presentation overrides from a project's .claude/campus.json (name/role only). */
+/** Optional presentation overrides from a project's runtime campus.json (name/role only). */
 export interface TeamOverride {
   name?: string;
   role?: string;
@@ -42,21 +40,22 @@ export class AgentsService {
     return rows.map((r) => r.generatedName).filter((n): n is string => Boolean(n));
   }
 
-  private async getOrCreateMainAgent(projectId: string, sessionId: string) {
+  private async getOrCreateMainAgent(projectId: string, sessionId: string, runtime: AgentRuntime) {
+    const identity = mainAgentIdentity(runtime);
     const existing = await this.prisma.projectAgent.findUnique({
-      where: { projectId_externalAgentId: { projectId, externalAgentId: MAIN_AGENT_EXTERNAL_ID } },
+      where: { projectId_externalAgentId: { projectId, externalAgentId: identity.externalId } },
     });
-    const profile = profileForAgentType('main-claude');
+    const profile = profileForAgentType(identity.agentType);
     if (existing) {
       return this.prisma.projectAgent.update({
         where: { id: existing.id },
         data: {
           currentSessionId: sessionId,
+          runtime,
           lastSeenAt: new Date(),
-          // keep Team Lead identity current (also migrates older "Main Claude" rows)
-          displayName: existing.customName ?? MAIN_CLAUDE_NAME,
-          generatedName: existing.generatedName ?? MAIN_CLAUDE_NAME,
-          role: existing.role ?? MAIN_CLAUDE_ROLE,
+          displayName: existing.customName ?? identity.name,
+          generatedName: existing.generatedName ?? identity.name,
+          role: existing.role ?? identity.role,
           bio: existing.bio ?? profile.bio,
         },
       });
@@ -64,11 +63,12 @@ export class AgentsService {
     const created = await this.prisma.projectAgent.create({
       data: {
         projectId,
-        externalAgentId: MAIN_AGENT_EXTERNAL_ID,
-        agentType: 'main-claude',
-        displayName: MAIN_CLAUDE_NAME,
-        generatedName: MAIN_CLAUDE_NAME,
-        role: MAIN_CLAUDE_ROLE,
+        externalAgentId: identity.externalId,
+        runtime,
+        agentType: identity.agentType,
+        displayName: identity.name,
+        generatedName: identity.name,
+        role: identity.role,
         bio: profile.bio,
         currentSessionId: sessionId,
       },
@@ -78,10 +78,8 @@ export class AgentsService {
   }
 
   /**
-   * Resolves which agent produced this event. Claude Code hooks fire process-wide, not
-   * per-subagent, so there is no dedicated subagent identifier in the payload -- we
-   * infer the active agent from a session-scoped stack: a Task tool PreToolUse pushes a
-   * subagent, and SubagentStop pops back to whichever agent was active before it.
+   * Resolves which agent produced this event. Codex supplies explicit subagent ids on
+   * lifecycle hooks. Claude Code is inferred from Task/SubagentStop signals.
    *
    * A subagent's identity is keyed on (session + agentType), so re-running the same kind
    * of subagent -- or reconnecting after a restart -- reuses the same teammate (same name,
@@ -90,25 +88,32 @@ export class AgentsService {
   async resolveActiveAgent(options: {
     projectId: string;
     sessionId: string;
+    runtime: AgentRuntime;
     isSubagentStart: boolean;
     isSubagentStop: boolean;
+    externalSubagentId?: string;
     subagentType?: string;
     subagentDescription?: string;
     override?: TeamOverride;
   }) {
-    const { projectId, sessionId, isSubagentStart, isSubagentStop, subagentType, override } = options;
+    const { projectId, sessionId, runtime, isSubagentStart, isSubagentStop, subagentType, externalSubagentId, override } = options;
+
+    const subagentExternalId = externalSubagentId
+      ? `${runtime}:${sessionId}:${externalSubagentId}`
+      : runtime === 'claude' && subagentType
+        ? `${sessionId}:${coerceAgentType(subagentType)}`
+        : `${runtime}:${sessionId}:${coerceAgentType(subagentType)}`;
 
     if (isSubagentStart) {
       const agentType = coerceAgentType(subagentType);
-      const externalAgentId = `${sessionId}:${agentType}`;
       const existing = await this.prisma.projectAgent.findUnique({
-        where: { projectId_externalAgentId: { projectId, externalAgentId } },
+        where: { projectId_externalAgentId: { projectId, externalAgentId: subagentExternalId } },
       });
       if (existing) {
         // Same subagent kind restarted in this session -- reuse the teammate, don't duplicate.
         return this.prisma.projectAgent.update({
           where: { id: existing.id },
-          data: { status: 'active', currentSessionId: sessionId, currentZoneKey: 'assigned-desk', lastSeenAt: new Date() },
+          data: { runtime, status: 'active', currentSessionId: sessionId, currentZoneKey: 'assigned-desk', lastSeenAt: new Date() },
         });
       }
       const profile = profileForAgentType(agentType);
@@ -116,7 +121,8 @@ export class AgentsService {
       const created = await this.prisma.projectAgent.create({
         data: {
           projectId,
-          externalAgentId,
+          externalAgentId: subagentExternalId,
+          runtime,
           agentType,
           generatedName,
           displayName: generatedName,
@@ -131,16 +137,23 @@ export class AgentsService {
       return created;
     }
 
+    const explicitlyStopped = isSubagentStop && externalSubagentId
+      ? await this.prisma.projectAgent.findUnique({
+          where: { projectId_externalAgentId: { projectId, externalAgentId: subagentExternalId } },
+        })
+      : null;
+
     const activeSubagent = await this.prisma.projectAgent.findFirst({
-      where: { projectId, currentSessionId: sessionId, status: 'active', agentType: { not: 'main-claude' } },
+      where: { projectId, currentSessionId: sessionId, runtime, status: 'active', agentType: { notIn: ['main-claude', 'main-codex'] } },
       orderBy: { lastSeenAt: 'desc' },
     });
 
-    const agent = activeSubagent ?? (await this.getOrCreateMainAgent(projectId, sessionId));
+    const agent = explicitlyStopped ?? activeSubagent ?? (await this.getOrCreateMainAgent(projectId, sessionId, runtime));
 
-    if (isSubagentStop && activeSubagent) {
+    const stoppedAgent = explicitlyStopped ?? activeSubagent;
+    if (isSubagentStop && stoppedAgent) {
       await this.prisma.projectAgent.update({
-        where: { id: activeSubagent.id },
+        where: { id: stoppedAgent.id },
         data: { status: 'idle', activity: 'idle', activitySource: 'real-work', currentZoneKey: 'assigned-desk' },
       });
     }
@@ -162,6 +175,10 @@ export class AgentsService {
       data: {
         activity: patch.activity,
         currentZoneKey: patch.currentZoneKey,
+        currentTool: patch.currentTool,
+        currentFile: patch.currentFile,
+        currentCommandSummary: patch.currentCommandSummary,
+        commandCategory: patch.commandCategory,
         status: patch.activity === 'idle' ? 'idle' : 'active',
         // any real event resets the source to real work -- ambient life is client-side only
         activitySource: 'real-work',

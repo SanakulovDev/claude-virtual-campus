@@ -1,12 +1,12 @@
-# Claude Virtual Campus
+# AI Virtual Campus
 
-A living 3D office for your Claude Code projects.
+A living 3D office for your Claude Code and Codex projects.
 
-Every local project becomes its own glass-walled room on a floating campus island. Claude
-and its real subagents appear as named teammates — planning, coding, testing and reviewing
+Every local project becomes its own glass-walled room on a floating campus island. Claude,
+Codex, and their real subagents appear as named teammates — planning, coding, testing and reviewing
 in real time — under a clean, premium light UI with live analytics and a campus status bar.
 
-![Claude Virtual Campus](docs/images/campus-overview.png)
+![AI Virtual Campus](docs/images/campus-overview.png)
 
 **Local-first · Multi-project · Multi-agent · Language-agnostic · Real-time 3D**
 
@@ -14,10 +14,10 @@ in real time — under a clean, premium light UI with live analytics and a campu
 
 ## What it is
 
-Open Claude Code inside any project, give it a task, and the campus lights up: it detects
+Open Claude Code or Codex inside any project, give it a task, and the campus lights up: it detects
 the project, gives it a room, and moves named 3D teammates as Claude actually works. It
 works with **any** language — PHP, Python, Go, Rust, Java, .NET, Ruby, Node.js or anything
-else — because it watches Claude Code's hooks, not your build system. Nothing is scripted:
+else — because it watches coding-agent hooks, not your build system. Nothing is scripted:
 every movement is driven by a real hook event.
 
 ![A focused project room](docs/images/project-room.png)
@@ -25,7 +25,7 @@ every movement is driven by a real hook event.
 ## Key features
 
 - **A room per project.** Each local project you connect gets its own persistent studio.
-- **Real named teammates.** Main Claude plus the actual subagents Claude starts, each with
+- **Real named teammates.** Main Claude/Codex agents plus the actual subagents they start, each with
   a readable name, a role and a short bio.
 - **Live 3D activity.** Agents plan, work, check and celebrate as hook events arrive.
 - **Ambient idle life.** Idle agents take coffee breaks and water plants — always clearly
@@ -54,12 +54,13 @@ pnpm campus:install ~/Developer/my-project
 ```
 
 ```bash
-# then just use Claude Code as usual
+# then use Claude Code or Codex as usual
 cd ~/Developer/my-project
 claude
+# or: codex
 ```
 
-Open **http://localhost:3100**, give Claude a task, and watch the project room come alive.
+Open **http://localhost:3100**, give either agent a task, and watch the project room come alive.
 Keep `pnpm dev` running the whole time.
 
 ## Full installation
@@ -91,7 +92,7 @@ Postgres, API and web — in containers:
 docker compose up -d --build
 ```
 
-- Web: **http://localhost:3100**
+- Web: **http://localhost:3200**
 - API: **http://localhost:4000**
 
 The API container applies database migrations on start, and all three services use
@@ -104,6 +105,10 @@ docker compose logs -f     # follow logs
 docker compose down        # stop everything
 docker compose up -d --build   # rebuild after you change the source
 ```
+
+Docker uses host port `3200` for the web app so it can coexist with `pnpm dev` on `3100`.
+Its API explicitly allows both local origins. Override `CAMPUS_DOCKER_WEB_PORT` and the
+comma-separated `CAMPUS_DOCKER_WEB_ORIGIN` allowlist together if needed.
 
 You still connect projects the same way (`pnpm campus:install …`); the hooks reach the API
 at `http://localhost:4000`.
@@ -127,11 +132,12 @@ pnpm campus:install "/Users/me/Developer/My Project"
 
 What the installer does — and does not do:
 
-- It modifies **only** the project's `.claude/` directory.
+- It modifies **only** the project's `.claude/` and `.codex/` configuration directories.
 - It does **not** modify your application source code.
 - It does **not** modify `package.json`, `composer.json`, `pyproject.toml` or `go.mod`.
-- Installation is required **once** per project; afterwards you just run `claude` normally.
-- The room appears after the first Claude hook event, and stays visible after the session
+- Installation is required **once** per project; afterwards you run `claude` or `codex` normally.
+- Codex will ask you to review/trust newly installed project hooks; use `/hooks` in Codex.
+- The room appears after the first coding-agent hook event, and stays visible after the session
   ends.
 
 To remove it:
@@ -143,7 +149,7 @@ pnpm campus:uninstall ~/Developer/my-project
 ## Daily usage
 
 1. Start the campus (`pnpm dev`) and open http://localhost:3100.
-2. Run `claude` inside any connected project and give it a task.
+2. Run `claude` or `codex` inside any connected project and give it a task.
 3. Watch its room: the agent moves to the planning table, then to its desk to work, then to
    the review screen to check, and celebrates when the task completes.
 4. Click a room or an agent to open the inspector for details; double-click an agent to
@@ -151,12 +157,12 @@ pnpm campus:uninstall ~/Developer/my-project
 
 ## Multi-agent rooms
 
-A room can hold the main Claude plus the real subagents Claude starts, for example a
+A room can hold the main runtime agent plus the real subagents it starts, for example a
 Planner, an Implementation Engineer and a QA Engineer working together.
 
 ![Multiple named agents in one room](docs/images/multi-agent-room.png)
 
-> The campus does not invent working agents. It visualizes the real agents Claude Code
+> The campus does not invent working agents. It visualizes the real agents Claude Code or Codex
 > starts.
 
 Each teammate gets a stable desk and keeps its identity across restarts and reconnects
@@ -166,7 +172,7 @@ profile.
 
 ### Work as a coordinated engineering team
 
-To see several teammates, ask Claude to split the work:
+To see several teammates, ask your coding agent to split the work:
 
 > Use a **Planner** subagent to inspect the request and define a plan.
 > Use an **Implementation Engineer** subagent to make the changes.
@@ -179,7 +185,7 @@ appear **only** when Claude actually starts multiple subagents.
 ## Named agents
 
 Every agent has a stable, human-readable name — never `agent-123` or `general-purpose-2`.
-Main Claude appears as **Claude — Team Lead**; subagents get names from a curated pool
+Main agents appear as **Claude — Team Lead** or **Codex — Team Lead**; subagents get names from a curated pool
 (Lucy, Jarvis, Anna, Milo, …), assigned deterministically with no duplicates in a room.
 
 ![Agent profile in the inspector](docs/images/agent-inspector.png)
@@ -194,7 +200,8 @@ Documentation Agent — each with its own accessory on the avatar.
 
 ### Optional team roster
 
-Pre-label the teammates a project will start with `<project>/.claude/campus.json`:
+Pre-label teammates with `<project>/.claude/campus.json`. Codex also supports
+`<project>/.codex/campus.json` and prefers it when both files exist:
 
 ```json
 {
@@ -220,19 +227,19 @@ labelled and kept separate from real work:
 
 - Ambient life starts **only** while an agent is genuinely idle and stops the instant a real
   event arrives.
-- It never creates Claude events, tool calls, tasks or transcripts, and social animation is
+- It never creates coding-agent events, tool calls, tasks or transcripts, and social animation is
   never presented as real agent communication.
 - It is frozen while an approval is pending or an agent needs attention.
 - You can turn it off from the top bar ("Ambient life"), and it respects your OS
   reduced-motion setting.
 
-Real work reads as **"Jarvis is editing the billing service — Real Claude activity"**;
+Real work reads as **"Jarvis is editing the billing service — Real agent activity"**;
 ambient life reads as **"Lucy is taking a coffee break — Ambient activity"**.
 
 ## Architecture
 
 ```text
-Claude Code CLI → universal hooks → NestJS event API → Postgres
+Claude Code / Codex → runtime hooks → NestJS event API → Postgres
                                           → Socket.IO → Next.js + React Three Fiber
 ```
 
@@ -244,17 +251,17 @@ module boundaries are in [docs/architecture.md](docs/architecture.md).
 
 The campus observes hooks and **never executes your code**. Secrets are redacted before
 anything is stored or shown, the API is local-only, destructive commands route through an
-approval flow that defaults to **deny** on timeout, and the hooks fail open so Claude Code
-keeps working if the campus is down. See [docs/security.md](docs/security.md).
+approval flow that defaults to **deny** on timeout, and observational hooks fail open so the
+coding agent keeps working if the campus is down. See [docs/security.md](docs/security.md).
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
-| Project does not appear | `pnpm campus:install <path>`, then run `claude` in it; check `curl http://localhost:4000/api/health` |
-| Only Claude appears | The task started no subagents — use the multi-agent prompt above |
+| Project does not appear | `pnpm campus:install <path>`, then run `claude` or `codex` in it; in Codex review `/hooks`; check `curl http://localhost:4000/api/health` |
+| Only one main agent appears | The task started no subagents — use the multi-agent prompt above |
 | Database unavailable | `pnpm db:up && pnpm db:migrate` |
-| Campus offline | Claude Code keeps working; hooks fail open |
+| Campus offline | Claude Code and Codex keep working; observational hooks fail open |
 
 More cases in [docs/troubleshooting.md](docs/troubleshooting.md).
 

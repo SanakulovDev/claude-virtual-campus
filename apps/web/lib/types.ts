@@ -1,4 +1,4 @@
-import type { AgentActivity, AgentActivitySource, AgentAnimation, CommandCategory, OfficeZoneKey } from '@campus/contracts';
+import type { AgentActivity, AgentActivitySource, AgentAnimation, AgentRuntime, CommandCategory, OfficeZoneKey } from '@campus/contracts';
 
 export interface TechnologyRow {
   id: string;
@@ -18,6 +18,7 @@ export interface ModuleRow {
 
 export interface AgentRow {
   id: string;
+  runtime: AgentRuntime;
   projectId: string;
   externalAgentId: string | null;
   agentType: string;
@@ -41,6 +42,7 @@ export interface AgentRow {
 
 export interface SessionRow {
   id: string;
+  runtime: AgentRuntime;
   externalSessionId: string;
   status: string;
   branch: string | null;
@@ -74,6 +76,7 @@ export interface ProjectRow {
 
 export interface ApprovalRow {
   id: string;
+  runtime: AgentRuntime;
   projectId: string;
   toolName: string;
   safeSummary: string;
@@ -84,6 +87,7 @@ export interface ApprovalRow {
 
 export interface TimelineEntry {
   id: string;
+  runtime: AgentRuntime;
   projectId: string;
   agentId?: string | null;
   sessionId?: string | null;

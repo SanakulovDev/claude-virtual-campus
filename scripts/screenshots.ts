@@ -185,7 +185,9 @@ async function main() {
     args: ['--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader', '--ignore-gpu-blocklist', '--enable-webgl'],
   });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  await page.goto(WEB_URL, { waitUntil: 'networkidle' });
+  // ?lowfx forces the render-capability fallback path (no bloom/transmission) so the
+  // headless software-WebGL run is deterministic and never renders a black composer frame.
+  await page.goto(`${WEB_URL}?lowfx`, { waitUntil: 'networkidle' });
   await settle(4500);
 
   // 1. campus overview (multiple studios + shared campus areas)

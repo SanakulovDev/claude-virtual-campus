@@ -28,7 +28,7 @@ export interface NormalizedEventCore {
 }
 
 const READ_TOOLS = new Set(['Read', 'Grep', 'Glob', 'NotebookRead', 'WebFetch', 'WebSearch']);
-const WRITE_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit', 'MultiEdit']);
+const WRITE_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit', 'MultiEdit', 'apply_patch']);
 
 const COMMAND_CATEGORY_ACTIVITY: Record<CommandCategory, AgentActivity> = {
   test: 'testing',
@@ -58,11 +58,14 @@ function truncate(value: string, max = 160): string {
 function extractFilePath(toolInput: Record<string, unknown> | undefined): string | null {
   if (!toolInput) return null;
   const candidate = toolInput.file_path ?? toolInput.path ?? toolInput.notebook_path;
-  return typeof candidate === 'string' ? candidate : null;
+  if (typeof candidate === 'string') return candidate;
+  const patch = typeof toolInput.command === 'string' ? toolInput.command : '';
+  const patchPath = patch.match(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/m)?.[1];
+  return patchPath ?? null;
 }
 
 /**
- * Converts one raw Claude Code hook payload into an observable, language-agnostic
+ * Converts one raw Claude Code or Codex hook payload into an observable, language-agnostic
  * normalized event core. Never exposes hidden reasoning -- only tool names, file
  * paths, and commands the tool call itself already made observable (spec section 16).
  */
@@ -70,7 +73,14 @@ export function normalizeHookEvent(raw: RawHookPayload, rootPath: string): Norma
   const hookEventName = raw.hook_event_name;
   const toolName = typeof raw.tool_name === 'string' ? raw.tool_name : null;
   const toolInput = (raw.tool_input as Record<string, unknown> | undefined) ?? undefined;
-  const safeMetadata = redactSensitiveData({ tool_input: toolInput }) as Record<string, unknown>;
+  const safeMetadata = redactSensitiveData({
+    tool_input: toolInput,
+    turn_id: raw.turn_id,
+    tool_use_id: raw.tool_use_id,
+    agent_id: raw.agent_id,
+    agent_type: raw.agent_type,
+    model: raw.model,
+  }) as Record<string, unknown>;
 
   const base: NormalizedEventCore = {
     normalizedType: 'unknown',
@@ -94,12 +104,13 @@ export function normalizeHookEvent(raw: RawHookPayload, rootPath: string): Norma
 
     case 'UserPromptSubmit': {
       const prompt = typeof raw.prompt === 'string' ? raw.prompt : '';
+      const safePrompt = String(redactSensitiveData(prompt));
       return {
         ...base,
         normalizedType: 'user_prompt_submit',
         activity: 'planning',
         targetZoneKey: 'planning-table',
-        workSummary: prompt ? `New task: ${truncate(prompt)}` : 'New task requested',
+        workSummary: safePrompt ? `New task: ${truncate(safePrompt)}` : 'New task requested',
       };
     }
 
@@ -135,19 +146,29 @@ export function normalizeHookEvent(raw: RawHookPayload, rootPath: string): Norma
       }
       if (toolName === 'Bash') {
         const command = typeof toolInput?.command === 'string' ? toolInput.command : '';
+        const safeCommand = String(redactSensitiveData(command));
         const classification = classifyCommand(command);
         return {
           ...base,
           normalizedType: 'command_run',
           activity: COMMAND_CATEGORY_ACTIVITY[classification.category],
           targetZoneKey: COMMAND_CATEGORY_ZONE[classification.category],
-          workSummary: `Running: ${truncate(command)}`,
-          commandSummary: truncate(command),
+          workSummary: `Running: ${truncate(safeCommand)}`,
+          commandSummary: truncate(safeCommand),
           commandCategory: classification.category,
         };
       }
       return { ...base, normalizedType: 'tool_use', activity: 'running_command', targetZoneKey: 'terminal-station', workSummary: `Using ${toolName ?? 'a tool'}` };
     }
+
+    case 'PermissionRequest':
+      return {
+        ...base,
+        normalizedType: 'permission_request',
+        activity: 'waiting_approval',
+        targetZoneKey: 'approval-desk',
+        workSummary: toolName ? `Waiting for approval: ${toolName}` : 'Waiting for approval',
+      };
 
     case 'PostToolUse': {
       const isError = Boolean(
@@ -164,10 +185,23 @@ export function normalizeHookEvent(raw: RawHookPayload, rootPath: string): Norma
     }
 
     case 'Notification':
-      return { ...base, normalizedType: 'notification', activity: 'waiting_approval', targetZoneKey: 'approval-desk', workSummary: typeof raw.message === 'string' ? truncate(raw.message) : 'Waiting for input' };
+      return { ...base, normalizedType: 'notification', activity: 'waiting_approval', targetZoneKey: 'approval-desk', workSummary: typeof raw.message === 'string' ? truncate(String(redactSensitiveData(raw.message))) : 'Waiting for input' };
 
     case 'PreCompact':
       return { ...base, normalizedType: 'pre_compact', activity: 'idle', targetZoneKey: 'entrance', workSummary: 'Compacting context' };
+
+    case 'PostCompact':
+      return { ...base, normalizedType: 'post_compact', activity: 'idle', targetZoneKey: 'entrance', workSummary: 'Context compacted' };
+
+    case 'SubagentStart':
+      return {
+        ...base,
+        normalizedType: 'subagent_start',
+        activity: 'walking',
+        targetZoneKey: 'assigned-desk',
+        workSummary: typeof raw.agent_type === 'string' ? `${raw.agent_type} subagent starting` : 'Subagent starting',
+        isSubagentStart: true,
+      };
 
     case 'Stop':
       return { ...base, normalizedType: 'stop', activity: 'completed', targetZoneKey: 'task-board', workSummary: 'Turn completed', isTaskCompletionSignal: true };

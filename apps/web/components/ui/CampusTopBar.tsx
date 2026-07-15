@@ -53,7 +53,7 @@ export function CampusTopBar() {
               <path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z" />
             </svg>
           </span>
-          <span className="text-[15px] font-semibold tracking-tight text-slate-900">Claude Virtual Campus</span>
+          <span className="text-[15px] font-semibold tracking-tight text-slate-900">AI Virtual Campus</span>
         </span>
         <span className="ml-1 flex items-center gap-1.5 text-[12px] font-medium text-slate-500">
           <span className="relative inline-flex h-2 w-2">
@@ -87,7 +87,7 @@ export function CampusTopBar() {
         <button
           onClick={toggleAmbientLife}
           aria-pressed={ambientLifeEnabled}
-          title="Ambient idle life is cosmetic only and never counts as real Claude work"
+          title="Ambient idle life is cosmetic only and never counts as real agent work"
           className={`rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
             ambientLifeEnabled
               ? 'border-amber-300 bg-amber-50 text-amber-700'

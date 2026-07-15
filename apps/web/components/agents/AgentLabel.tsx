@@ -7,7 +7,7 @@ import type { SimplifiedAgentVisualState } from '../../selectors/visual-state.se
 /**
  * Floating label: agent name + role, and a status line. When the agent is doing ambient
  * idle life the status line shows the ambient activity in amber and is tagged so it never
- * reads as real Claude work. Full detail lives in the inspector drawer.
+ * reads as real agent work. Full detail lives in the inspector drawer.
  */
 export function AgentLabel({
   name,

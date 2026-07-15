@@ -8,12 +8,11 @@ import {
 import { Logger } from '@nestjs/common';
 import type { Server, Socket } from 'socket.io';
 import { SOCKET_EVENTS, projectRoom, sessionRoom } from '@campus/contracts';
+import { corsOrigins } from '../cors';
 import { PrismaService } from '../prisma/prisma.service';
 import { buildBootstrapSnapshot } from './bootstrap';
 
-const CORS_ORIGIN = process.env.CORS_ORIGIN ?? 'http://localhost:3000';
-
-@WebSocketGateway({ cors: { origin: CORS_ORIGIN }, namespace: '/' })
+@WebSocketGateway({ cors: { origin: corsOrigins() }, namespace: '/' })
 export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
   private readonly logger = new Logger(RealtimeGateway.name);
 

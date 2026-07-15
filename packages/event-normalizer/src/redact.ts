@@ -9,12 +9,13 @@ const SECRET_VALUE_PATTERNS: RegExp[] = [
 ];
 
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const SECRET_ASSIGNMENT_PATTERN = /((?:--)?(?:password|secret|token|api[_-]?key|authorization|cookie|private[_-]?key|credential|access[_-]?key)\s*(?:=|\s)\s*)("[^"]*"|'[^']*'|[^\s]+)/gi;
 const MAX_DEPTH = 6;
 const MAX_KEYS_PER_OBJECT = 200;
 const MAX_STRING_LENGTH = 4000;
 
 function redactString(value: string): string {
-  let result = value;
+  let result = value.replace(SECRET_ASSIGNMENT_PATTERN, '$1[REDACTED]');
   for (const pattern of SECRET_VALUE_PATTERNS) {
     result = result.replace(pattern, '[REDACTED]');
   }

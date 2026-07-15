@@ -170,7 +170,7 @@ export function CampusHub() {
             whiteSpace: 'nowrap',
           }}
         >
-          Claude Virtual Campus
+          AI Virtual Campus
         </div>
       </Html>
 

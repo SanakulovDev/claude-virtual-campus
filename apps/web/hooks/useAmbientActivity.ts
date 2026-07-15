@@ -23,7 +23,7 @@ const ROTATE_MS = 9000;
 
 /**
  * Ambient activity for one agent, or null. Recomputed from live agent state every render,
- * so a real Claude event stops ambient life immediately. Rotates activities over time.
+ * so a real coding-agent event stops ambient life immediately. Rotates activities over time.
  * Bucket 0 shows nothing, giving a short settle delay before an idle agent wanders off.
  */
 export function useAmbientActivity(agent: AgentRow, projectId: string): AmbientActivity | null {

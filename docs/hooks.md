@@ -1,9 +1,9 @@
 # Hooks
 
-The campus observes Claude Code through **hooks**. Installing the campus into a project
-adds a small `.claude/` hook configuration that POSTs each hook event to the campus API.
-Hooks are observational and **fail open**: if the campus API is down, Claude Code keeps
-working normally.
+The campus observes Claude Code and Codex through **hooks**. Installation adds small
+configurations under `.claude/` and `.codex/`; events are posted to runtime-specific API
+routes and then normalized into one shared model. Observational hooks are bounded and
+**fail open** if the campus API is unavailable.
 
 ## Install / uninstall
 
@@ -12,14 +12,20 @@ pnpm campus:install /absolute/path/to/any/project
 pnpm campus:uninstall /absolute/path/to/any/project
 ```
 
-The installer only ever creates/edits files under `<project>/.claude/`. It never modifies
+The installer only ever creates/edits files under `<project>/.claude/` and
+`<project>/.codex/`. It never modifies
 `composer.json`, `package.json`, `go.mod`, `pyproject.toml`, or any other manifest, is
-idempotent, backs up an existing `settings.json` before changing it, and works in non-git
+idempotent, backs up existing hook configuration before changing it, and works in non-git
 directories and paths containing spaces.
 
-`CLAUDE_CAMPUS_URL` (default `http://localhost:4000`) points the hooks at the API.
+`CLAUDE_CAMPUS_URL` and `CODEX_CAMPUS_URL` (default `http://localhost:4000`) point hooks
+at the API. Codex requires review/trust for changed non-managed project hooks; inspect and
+trust them with `/hooks`.
 
-## Hook-event mapping caveat
+For authenticated ingestion, set `HOOK_SHARED_SECRET` for the API and export the same
+value as `CAMPUS_HOOK_TOKEN` before starting Claude Code or Codex.
+
+## Runtime event mapping
 
 Claude Code's officially documented hook events (as of when this was built) are:
 `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Notification`,
@@ -37,18 +43,28 @@ are derived server-side:
 | `StopFailure` | not distinguished from `Stop` in the current payload; documented gap |
 | `CwdChanged` | not a hook; every payload includes `cwd`, diffed server-side per session |
 
-Hooks fire process-wide, not per-subagent, so there is no dedicated subagent identifier in
-the payload. `AgentsService.resolveActiveAgent` infers the active agent via a
-session-scoped stack (a `Task` PreToolUse pushes, `SubagentStop` pops), using the real
+Claude hooks fire process-wide, not per-subagent, so there is no dedicated subagent identifier in
+the payload. `AgentsService.resolveActiveAgent` infers the active agent from `Task`
+PreToolUse and `SubagentStop`, using the real
 `subagent_type`/`description` from the `Task` tool's `tool_input` when present. Verify this
 mapping against your installed Claude Code CLI's docs before depending on it for anything
 safety-critical.
 
+Codex has native `PermissionRequest`, `PostCompact`, `SubagentStart`, and `SubagentStop`
+events. Its subagent events contain `agent_id` and `agent_type`, which the campus uses as
+stable identities instead of inferring a synthetic stack. `tool_use_id` correlates Codex
+PreToolUse/PostToolUse pairs, including concurrent calls. The installed Codex event set is:
+`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PermissionRequest`, `PostToolUse`,
+`PreCompact`, `PostCompact`, `SubagentStart`, `SubagentStop`, and `Stop`.
+
+Routes are `POST /api/claude/events`, `POST /api/codex/events`,
+`POST /api/claude/approval`, and `POST /api/codex/approval`.
+
 ## campus.json (optional)
 
-A project may add `<project>/.claude/campus.json` to relabel the teammates Claude Code
-starts. It is **presentation only** — it never grants permissions and never creates a
-working agent Claude did not start.
+A project may add `<project>/.claude/campus.json` or `<project>/.codex/campus.json` to
+relabel teammates. Codex prefers its own file and falls back to `.claude/campus.json`.
+These files are **presentation only**—they never grant permissions or create agents.
 
 ```json
 {

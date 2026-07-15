@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "__CAMPUS_CODEX_SEND_EVENT__", "timeout": 5 }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "__CAMPUS_CODEX_SEND_EVENT__", "timeout": 5 }] }
+    ],
+    "PreToolUse": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "__CAMPUS_CODEX_SEND_EVENT__", "timeout": 5 }] }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "__CAMPUS_CODEX_SEND_EVENT__", "timeout": 5 },
+          { "type": "command", "command": "__CAMPUS_CODEX_REQUEST_APPROVAL__", "timeout": 35 }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "__CAMPUS_CODEX_SEND_EVENT__", "timeout": 5 }] }
+    ],
+    "PreCompact": [
+      { "hooks": [{ "type": "command", "command": "__CAMPUS_CODEX_SEND_EVENT__", "timeout": 5 }] }
+    ],
+    "PostCompact": [
+      { "hooks": [{ "type": "command", "command": "__CAMPUS_CODEX_SEND_EVENT__", "timeout": 5 }] }
+    ],
+    "SubagentStart": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "__CAMPUS_CODEX_SEND_EVENT__", "timeout": 5 }] }
+    ],
+    "SubagentStop": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "__CAMPUS_CODEX_SEND_EVENT__", "timeout": 5 }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "__CAMPUS_CODEX_SEND_EVENT__", "timeout": 5 }] }
+    ]
+  }
+}

@@ -27,7 +27,7 @@ async function gitFixture(files: Record<string, string>): Promise<string> {
   return dir;
 }
 
-describe('Claude event pipeline (integration)', () => {
+describe('Coding-agent event pipeline (integration)', () => {
   let app: INestApplication;
   const cleanupDirs: string[] = [];
 
@@ -134,7 +134,47 @@ describe('Claude event pipeline (integration)', () => {
     expect(project.agents.filter((a: { externalAgentId: string }) => a.externalAgentId === 'main-claude').length).toBe(1);
   });
 
+  it('ingests Codex hooks with separate runtime identity and explicit subagents', async () => {
+    const dir = await gitFixture({ 'Cargo.toml': '[package]\nname="codex-fixture"\nversion="0.1.0"', 'src/main.rs': 'fn main() {}' });
+    cleanupDirs.push(dir);
+    const sharedSessionId = randomUUID();
+
+    await send(dir, sharedSessionId, { hook_event_name: 'SessionStart' });
+    const sendCodex = (body: Record<string, unknown>) => request(app.getHttpServer())
+      .post('/api/codex/events')
+      .send({ session_id: sharedSessionId, cwd: dir, ...body })
+      .expect((res) => {
+        if (res.status !== 201 && res.status !== 200) throw new Error(`unexpected status ${res.status}`);
+      });
+
+    await sendCodex({ hook_event_name: 'SessionStart', source: 'startup', model: 'gpt-5' });
+    await sendCodex({ hook_event_name: 'SubagentStart', turn_id: 'turn-1', agent_id: 'agent-1', agent_type: 'code-reviewer' });
+    const patch = '*** Begin Patch\n*** Update File: src/main.rs\n@@\n-fn main() {}\n+fn main() { println!("hi"); }\n*** End Patch';
+    await sendCodex({ hook_event_name: 'PreToolUse', turn_id: 'turn-1', tool_name: 'apply_patch', tool_use_id: 'tool-1', tool_input: { command: patch } });
+    await sendCodex({ hook_event_name: 'PostToolUse', turn_id: 'turn-1', tool_name: 'apply_patch', tool_use_id: 'tool-1', tool_input: { command: patch }, tool_response: { output: 'Done!' } });
+
+    const activeProjectsRes = await request(app.getHttpServer()).get('/api/projects').expect(200);
+    const activeProject = activeProjectsRes.body.find((p: { rootPath: string }) => p.rootPath === dir);
+    expect(activeProject.agents).toEqual(expect.arrayContaining([
+      expect.objectContaining({ agentType: 'code-reviewer', runtime: 'codex', currentFile: 'src/main.rs' }),
+    ]));
+
+    await sendCodex({ hook_event_name: 'SubagentStop', turn_id: 'turn-1', agent_id: 'agent-1', agent_type: 'code-reviewer' });
+
+    const projectsRes = await request(app.getHttpServer()).get('/api/projects').expect(200);
+    const project = projectsRes.body.find((p: { rootPath: string }) => p.rootPath === dir);
+    expect(project.agents).toEqual(expect.arrayContaining([
+      expect.objectContaining({ externalAgentId: 'main-claude', runtime: 'claude' }),
+      expect.objectContaining({ externalAgentId: 'main-codex', runtime: 'codex', displayName: 'Codex' }),
+      expect.objectContaining({ agentType: 'code-reviewer', runtime: 'codex', status: 'idle' }),
+    ]));
+
+    const eventsRes = await request(app.getHttpServer()).get(`/api/projects/${project.id}/events`).expect(200);
+    expect(eventsRes.body.filter((event: { runtime: string }) => event.runtime === 'codex')).toHaveLength(5);
+  });
+
   it('rejects a malformed payload with 400 instead of crashing', async () => {
     await request(app.getHttpServer()).post('/api/claude/events').send({ nonsense: true }).expect(400);
+    await request(app.getHttpServer()).post('/api/codex/events').send({ nonsense: true }).expect(400);
   });
 });

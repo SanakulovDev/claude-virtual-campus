@@ -26,13 +26,13 @@ describe('Approvals (integration)', () => {
     await prisma.$disconnect();
   });
 
-  it('auto-allows a non-destructive Bash command without creating an approval record', async () => {
+  it('delegates a non-destructive command to the runtime approval policy', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'campus-approval-'));
     const res = await request(app.getHttpServer())
       .post('/api/claude/approval')
       .send({ session_id: randomUUID(), cwd: dir, hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'npm test' } })
-      .expect(201);
-    expect(res.body.hookSpecificOutput.permissionDecision).toBe('allow');
+      .expect(204);
+    expect(res.text).toBe('');
   });
 
   it('blocks a destructive command and denies on timeout (safe default)', async () => {
@@ -66,5 +66,19 @@ describe('Approvals (integration)', () => {
 
     const res = await pending;
     expect(res.body.hookSpecificOutput.permissionDecision).toBe('allow');
+  });
+
+  it('returns the Codex PermissionRequest decision shape', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'campus-approval-codex-'));
+    const res = await request(app.getHttpServer())
+      .post('/api/codex/approval')
+      .send({ session_id: randomUUID(), cwd: dir, hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'sudo rm thing' } })
+      .expect(201);
+    expect(res.body).toEqual({
+      hookSpecificOutput: {
+        hookEventName: 'PermissionRequest',
+        decision: { behavior: 'deny', message: 'Approval timed out' },
+      },
+    });
   });
 });
