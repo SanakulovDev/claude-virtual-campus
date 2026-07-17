@@ -22,6 +22,20 @@ projects.
   `pyproject.toml`, or any other project manifest, and must work in non-git directories
   and paths containing spaces.
 
+## Local setup
+
+```bash
+cp .env.example .env   # ports are off the defaults: web 3100, api 4000, postgres 5433
+pnpm install
+pnpm db:up             # Postgres in Docker
+pnpm db:migrate
+pnpm dev               # web + api, must stay running
+```
+
+`docker compose up -d --build` runs the whole stack instead (the API container binds
+`0.0.0.0` via `API_HOST` and runs `prisma migrate deploy` on start; `pnpm dev` keeps the
+`127.0.0.1` default).
+
 ## Architecture boundaries
 
 - `packages/contracts` -- zod schemas + shared TS types + shared 3D layout constants.
@@ -81,6 +95,44 @@ real `subagent_type`/`description` fields from the `Task` tool's `tool_input` wh
 present. Verify this mapping against your installed Claude Code CLI's own docs before
 depending on it for anything safety-critical.
 
+## Frontend state model
+
+`apps/web` never decides what an agent is doing -- it collapses backend activity into five
+visual states in `apps/web/selectors/`, so agents move on phase changes rather than on every
+tool call:
+
+| Visual state | Backend activity (examples) | Where the agent goes |
+|---|---|---|
+| Planning | UserPromptSubmit, planning, meeting | planning table |
+| Working | Read/Grep/Edit/Write, commands, db/infra edits | assigned desk |
+| Checking | test, build, lint, typecheck, review | shared review screen |
+| Attention | permission request, blocked, tool failure | pauses in place + beacon |
+| Completed | task complete / successful stop | desk (brief celebrate) -> idle |
+
+Socket events land in `stores/campusStore.ts` (zustand) via `hooks/useCampusSocket.ts`;
+components read through selectors, never raw events. The only client-generated motion is
+ambient idle life (`selectors/ambient.ts` + `hooks/useAmbientActivity.ts`), which is
+labelled as ambient, stops on any real event, and never produces events of its own.
+
+## Testing
+
+`pnpm test` runs vitest per workspace. `apps/api`'s integration tests hit a **real**
+Postgres, so `pnpm db:up && pnpm db:migrate` must have run first; the other workspaces are
+pure unit tests and need nothing. A single file:
+
+```bash
+pnpm --filter @campus/api exec vitest run test/events.integration.test.ts
+pnpm --filter @campus/event-normalizer exec vitest run src/redact.test.ts
+```
+
+`apps/api/vitest.config.ts` uses the swc plugin, not esbuild -- NestJS DI needs
+`emitDecoratorMetadata`, which esbuild does not emit. Test env defaults live in
+`apps/api/test/setup.ts`.
+
+To exercise the pipeline without Claude Code, `pnpm demo:events` (or `demo:php`,
+`demo:python`, `demo:go`, `demo:attention`) creates real temp git repos and POSTs real hook
+payloads to the real endpoint -- there is no fake frontend path.
+
 ## Commands required before calling anything done
 
 ```bash
@@ -90,6 +142,12 @@ pnpm test
 pnpm build
 pnpm test:e2e
 ```
+
+## Longer references
+
+`docs/architecture.md` (data flow, boundaries, agent identity), `docs/hooks.md` (hook-event
+mapping), `docs/security.md`, `docs/development.md`, `docs/troubleshooting.md`, and the
+full design spec at `docs/superpowers/specs/2026-07-09-virtual-campus-design.md`.
 
 ## Prohibitions
 
