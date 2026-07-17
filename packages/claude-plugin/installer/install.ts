@@ -14,8 +14,13 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-export function install(targetDirArg: string): void {
-  const targetDir = path.resolve(targetDirArg);
+/** No path given means "this project" -- the launcher runs from inside the target dir. */
+export function resolveTargetArg(arg: string | undefined): string {
+  return path.resolve(arg ?? process.cwd());
+}
+
+export function install(targetDirArg?: string): void {
+  const targetDir = resolveTargetArg(targetDirArg);
   if (!existsSync(targetDir) || !statSync(targetDir).isDirectory()) {
     fail(`Target directory does not exist: ${targetDir}`);
   }
@@ -79,7 +84,5 @@ export function install(targetDirArg: string): void {
 
 const invokedDirectly = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 if (invokedDirectly) {
-  const target = process.argv[2];
-  if (!target) fail('Usage: campus:install <path-to-project>');
-  install(target);
+  install(process.argv[2]);
 }

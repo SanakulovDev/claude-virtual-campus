@@ -2,6 +2,7 @@ import { existsSync, readFileSync, writeFileSync, unlinkSync, statSync } from 'n
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripOurSettings, type ClaudeSettings } from './merge-settings';
+import { resolveTargetArg } from './install';
 
 const HOOK_FILENAMES = ['send-event.sh', 'request-approval.sh'];
 
@@ -11,8 +12,8 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-export function uninstall(targetDirArg: string): void {
-  const targetDir = path.resolve(targetDirArg);
+export function uninstall(targetDirArg?: string): void {
+  const targetDir = resolveTargetArg(targetDirArg);
   if (!existsSync(targetDir) || !statSync(targetDir).isDirectory()) {
     fail(`Target directory does not exist: ${targetDir}`);
   }
@@ -64,7 +65,5 @@ export function uninstall(targetDirArg: string): void {
 
 const invokedDirectly = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 if (invokedDirectly) {
-  const target = process.argv[2];
-  if (!target) fail('Usage: campus:uninstall <path-to-project>');
-  uninstall(target);
+  uninstall(process.argv[2]);
 }

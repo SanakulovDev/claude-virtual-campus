@@ -2,7 +2,7 @@ import { describe, expect, it, afterEach } from 'vitest';
 import { mkdtemp, rm, readFile, writeFile, mkdir, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { install } from './install';
+import { install, resolveTargetArg } from './install';
 import { uninstall } from './uninstall';
 
 const dirsToClean: string[] = [];
@@ -15,6 +15,21 @@ async function makeProjectDir(prefix: string): Promise<string> {
   dirsToClean.push(dir);
   return dir;
 }
+
+describe('resolveTargetArg', () => {
+  it('defaults to the current working directory when no path is given', () => {
+    // The whole point of the `campus` launcher: run it inside your project, no path.
+    expect(resolveTargetArg(undefined)).toBe(process.cwd());
+  });
+
+  it('resolves a relative path against the current directory', () => {
+    expect(resolveTargetArg('.')).toBe(process.cwd());
+  });
+
+  it('passes an absolute path through unchanged', () => {
+    expect(resolveTargetArg('/tmp/some project')).toBe('/tmp/some project');
+  });
+});
 
 describe('campus:install / campus:uninstall', () => {
   it('installs hooks into a non-git PHP-like project without touching its manifest', async () => {

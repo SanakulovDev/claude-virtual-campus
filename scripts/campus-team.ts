@@ -46,7 +46,7 @@ const invokedDirectly = process.argv[1] && import.meta.url === `file://${path.re
 if (invokedDirectly) {
   const args = process.argv.slice(2);
   const force = args.includes('--force');
-  const target = args.find((a) => !a.startsWith('--'));
-  if (!target) fail('Usage: campus:team <path-to-project> [--force]');
+  // No path means "this project" -- the `campus` launcher runs from inside the target dir.
+  const target = args.find((a) => !a.startsWith('--')) ?? process.cwd();
   scaffoldTeam(target, force);
 }

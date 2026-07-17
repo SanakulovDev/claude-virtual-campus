@@ -48,9 +48,11 @@ pnpm dev
 ```
 
 ```bash
-# terminal 2 — connect a project
-cd ~/Developer/claude-virtual-campus
-pnpm campus:install ~/Developer/my-project
+# terminal 2 — connect a project (one-time: put `campus` on your PATH)
+cd ~/Developer/claude-virtual-campus && pnpm campus:link
+
+cd ~/Developer/my-project
+campus install
 ```
 
 ```bash
@@ -105,25 +107,30 @@ docker compose down        # stop everything
 docker compose up -d --build   # rebuild after you change the source
 ```
 
-You still connect projects the same way (`pnpm campus:install …`); the hooks reach the API
+You still connect projects the same way (`campus install`); the hooks reach the API
 at `http://localhost:4000`.
 
 ## Connect a project
 
-The same command works for every language:
+Once per machine, put the `campus` command on your PATH:
 
 ```bash
-pnpm campus:install ~/Developer/prog.bts
-pnpm campus:install ~/Developer/laravel-shop
-pnpm campus:install ~/Developer/python-worker
-pnpm campus:install ~/Developer/go-service
+cd ~/Developer/claude-virtual-campus && pnpm campus:link
 ```
 
-Paths with spaces are fine:
+After that, connect any project — any language — by running one command **inside it**, with
+no path and no pnpm:
 
 ```bash
-pnpm campus:install "/Users/me/Developer/My Project"
+cd ~/Developer/laravel-shop && campus install
+cd ~/Developer/python-worker && campus install
+cd ~/Developer/go-service && campus install
 ```
+
+`campus install <path>` also works if you'd rather pass the directory explicitly (paths with
+spaces are fine). Prefer not to touch your PATH? Run it by its full path —
+`~/Developer/claude-virtual-campus/bin/campus install` — or use `pnpm campus:install <path>`
+from inside the campus repo. All three call the same installer.
 
 What the installer does — and does not do:
 
@@ -134,10 +141,10 @@ What the installer does — and does not do:
 - The room appears after the first Claude hook event, and stays visible after the session
   ends.
 
-To remove it:
+To remove it, from inside the project:
 
 ```bash
-pnpm campus:uninstall ~/Developer/my-project
+campus uninstall
 ```
 
 ## Daily usage
@@ -208,7 +215,7 @@ Pre-label the teammates a project will start with `<project>/.claude/campus.json
 ```
 
 This controls presentation only — it grants no permissions and creates no working agents.
-Scaffold a starter file with `pnpm campus:team /path/to/project`.
+Scaffold a starter file by running `campus team` inside the project.
 
 ## Idle campus life
 
@@ -251,7 +258,7 @@ keeps working if the campus is down. See [docs/security.md](docs/security.md).
 
 | Symptom | Fix |
 |---|---|
-| Project does not appear | `pnpm campus:install <path>`, then run `claude` in it; check `curl http://localhost:4000/api/health` |
+| Project does not appear | run `campus install` in it (or `pnpm campus:install <path>`), then run `claude`; check `curl http://localhost:4000/api/health` |
 | Only Claude appears | The task started no subagents — use the multi-agent prompt above |
 | Database unavailable | `pnpm db:up && pnpm db:migrate` |
 | Campus offline | Claude Code keeps working; hooks fail open |

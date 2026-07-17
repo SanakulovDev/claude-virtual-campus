@@ -26,6 +26,7 @@
     "demo:python": "tsx scripts/demo-events.ts python",
     "demo:go": "tsx scripts/demo-events.ts go",
     "demo:attention": "tsx scripts/demo-events.ts attention",
+    "campus:link": "bin/campus link",
     "campus:install": "tsx packages/claude-plugin/installer/install.ts",
     "campus:uninstall": "tsx packages/claude-plugin/installer/uninstall.ts",
     "campus:team": "tsx scripts/campus-team.ts"

@@ -20,7 +20,12 @@ projects.
 - The installer (`packages/claude-plugin/installer`) only ever touches `.claude/` inside
   a target project. It must never edit `composer.json`, `package.json`, `go.mod`,
   `pyproject.toml`, or any other project manifest, and must work in non-git directories
-  and paths containing spaces.
+  and paths containing spaces. Users reach it through `bin/campus` (a pnpm-free launcher
+  put on PATH via `pnpm campus:link`), so the connect flow never forces a Node toolchain
+  onto a non-Node project. The target defaults to the current directory when no path is
+  given -- `resolveTargetArg` in `install.ts` owns that default; the launcher is a plain
+  dispatcher. Keep both entry points (`campus install` and `pnpm campus:install <path>`)
+  working.
 
 ## Local setup
 

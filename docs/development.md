@@ -96,13 +96,17 @@ frontend path.
 
 ## Connecting a project
 
-There is no per-language setup:
+There is no per-language setup. Put `campus` on your PATH once (`pnpm campus:link` from this
+repo), then, inside any project:
 
 ```bash
-pnpm campus:install ~/Developer/my-project
-pnpm campus:install "/Users/me/Developer/My Project"   # paths with spaces are fine
-pnpm campus:team    ~/Developer/my-project             # optional team roster
+campus install        # connect this project (any language, no path needed)
+campus team           # optional team roster (.claude/campus.json)
+campus uninstall      # disconnect
 ```
+
+`campus <cmd> <path>` takes an explicit directory too (paths with spaces are fine).
+`bin/campus` and `pnpm campus:install <path>` from this repo are equivalent entry points.
 
 Then run `claude` inside that project. See [hooks.md](hooks.md) for details.
 
