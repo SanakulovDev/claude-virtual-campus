@@ -26,6 +26,11 @@ export const PALETTE = {
   pot: '#8a6f57',
   avatarBody: '#eae6de',
   avatarSkin: '#e7c6a5',
+  /** Robot chassis system: painted plating (per role) over dark joints, with a lit optic. */
+  robotJoint: '#4a5160',
+  robotServo: '#6d7480',
+  robotTrim: '#c2c7cf',
+  robotVisor: '#1d2733',
 } as const;
 
 /** Subtle status accents. Colour is never the only signal -- paired with text + icon in UI. */

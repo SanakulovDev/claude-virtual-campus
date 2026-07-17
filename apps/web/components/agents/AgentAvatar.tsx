@@ -2,6 +2,7 @@
 
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
 import { profileForAgentType, type AgentAccessory, type AmbientActivity } from '@campus/contracts';
 import { agentBodyColor, PALETTE, STATE_COLOR } from '../../lib/theme';
@@ -20,12 +21,28 @@ interface AgentAvatarProps {
   onFollow: () => void;
 }
 
-const HAIR_COLORS = ['#3b2f2a', '#5a3a26', '#20242b', '#6b6b6b', '#8a5a2b', '#c9a24b'];
-
 function hashString(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   return h;
+}
+
+/** Two-finger claw. Sits inside an arm mesh so it swings with the existing arm rig. */
+function Gripper() {
+  return (
+    <group position={[0, -0.26, 0]}>
+      <mesh>
+        <cylinderGeometry args={[0.055, 0.055, 0.07, 8]} />
+        <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.5} />
+      </mesh>
+      {[-0.045, 0.045].map((x) => (
+        <mesh key={x} position={[x, -0.08, 0]} rotation={[0, 0, x > 0 ? -0.25 : 0.25]}>
+          <boxGeometry args={[0.03, 0.11, 0.06]} />
+          <meshStandardMaterial color={PALETTE.robotTrim} roughness={0.5} metalness={0.55} />
+        </mesh>
+      ))}
+    </group>
+  );
 }
 
 /** Small role accessory rendered near the head/chest. One reusable set, not a new model. */
@@ -116,8 +133,8 @@ export function AgentAvatar({ agent, visualState, ambient, target, restFacingY, 
   const bodyColor = agentBodyColor(agent.agentType, agent.externalAgentId);
   const isMain = agent.externalAgentId === 'main-claude' || agent.agentType === 'main-claude';
   const accessory = profileForAgentType(agent.agentType).accessory;
-  const hairColor = HAIR_COLORS[hashString(agent.id) % HAIR_COLORS.length]!;
-  const hairStyle = hashString(agent.id + 'h') % 3;
+  // Stable per-agent chassis variant (was hair): teammates still read as individuals.
+  const chassisVariant = hashString(agent.id) % 3;
 
   useFrame(({ clock }, delta) => {
     const g = root.current;
@@ -197,89 +214,110 @@ export function AgentAvatar({ agent, visualState, ambient, target, restFacingY, 
       }}
     >
       <group ref={torso}>
-        {/* legs */}
-        <mesh position={[-0.16, 0.42, 0]} castShadow>
-          <capsuleGeometry args={[0.13, 0.5, 4, 8]} />
-          <meshStandardMaterial color="#4a5160" roughness={0.9} />
-        </mesh>
-        <mesh position={[0.16, 0.42, 0]} castShadow>
-          <capsuleGeometry args={[0.13, 0.5, 4, 8]} />
-          <meshStandardMaterial color="#4a5160" roughness={0.9} />
-        </mesh>
-        {/* shoes */}
-        <mesh position={[-0.16, 0.06, 0.06]} castShadow>
-          <boxGeometry args={[0.2, 0.12, 0.3]} />
-          <meshStandardMaterial color="#2b2f36" roughness={0.8} />
-        </mesh>
-        <mesh position={[0.16, 0.06, 0.06]} castShadow>
-          <boxGeometry args={[0.2, 0.12, 0.3]} />
-          <meshStandardMaterial color="#2b2f36" roughness={0.8} />
-        </mesh>
-        {/* torso (rounded) */}
-        <mesh position={[0, 1.0, 0]} castShadow>
-          <capsuleGeometry args={[0.32, 0.5, 6, 12]} />
-          <meshStandardMaterial color={bodyColor} roughness={0.8} />
-        </mesh>
-        {/* accent collar */}
-        <mesh position={[0, 1.2, 0]}>
-          <torusGeometry args={[0.3, 0.05, 8, 20]} />
-          <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.3} />
-        </mesh>
-        {/* arms + hands */}
-        <mesh ref={leftArm} position={[-0.38, 1.15, 0]} castShadow>
-          <capsuleGeometry args={[0.09, 0.4, 4, 8]} />
-          <meshStandardMaterial color={bodyColor} roughness={0.8} />
-          <mesh position={[0, -0.28, 0]}>
-            <sphereGeometry args={[0.1, 10, 10]} />
-            <meshStandardMaterial color={PALETTE.avatarSkin} roughness={0.85} />
-          </mesh>
-        </mesh>
-        <mesh ref={rightArm} position={[0.38, 1.15, 0]} castShadow>
-          <capsuleGeometry args={[0.09, 0.4, 4, 8]} />
-          <meshStandardMaterial color={bodyColor} roughness={0.8} />
-          <mesh position={[0, -0.28, 0]}>
-            <sphereGeometry args={[0.1, 10, 10]} />
-            <meshStandardMaterial color={PALETTE.avatarSkin} roughness={0.85} />
-          </mesh>
-        </mesh>
-        {/* head */}
-        <mesh position={[0, 1.62, 0]} castShadow>
-          <sphereGeometry args={[0.26, 20, 20]} />
-          <meshStandardMaterial color={PALETTE.avatarSkin} roughness={0.85} />
-        </mesh>
-        {/* eyes */}
-        <mesh position={[-0.09, 1.63, 0.23]}>
-          <sphereGeometry args={[0.032, 8, 8]} />
-          <meshStandardMaterial color="#20242b" />
-        </mesh>
-        <mesh position={[0.09, 1.63, 0.23]}>
-          <sphereGeometry args={[0.032, 8, 8]} />
-          <meshStandardMaterial color="#20242b" />
-        </mesh>
-        {/* hair (variant by agent) */}
-        {!isMain && (
-          <group>
-            <mesh position={[0, 1.73, -0.02]} scale={[1, hairStyle === 2 ? 0.7 : 0.85, 1]} castShadow>
-              <sphereGeometry args={[0.28, 16, 16]} />
-              <meshStandardMaterial color={hairColor} roughness={0.9} />
+        {/* piston legs: dark servo shaft + knee joint + boxy foot */}
+        {[-0.16, 0.16].map((x) => (
+          <group key={x} position={[x, 0, 0]}>
+            <mesh position={[0, 0.58, 0]} castShadow>
+              <cylinderGeometry args={[0.075, 0.075, 0.34, 10]} />
+              <meshStandardMaterial color={PALETTE.robotServo} roughness={0.5} metalness={0.6} />
             </mesh>
-            {hairStyle === 1 && (
-              <mesh position={[0, 1.68, 0.2]} scale={[1, 0.4, 0.4]}>
-                <sphereGeometry args={[0.24, 12, 12]} />
-                <meshStandardMaterial color={hairColor} roughness={0.9} />
-              </mesh>
-            )}
-            {hairStyle === 2 && (
-              <mesh position={[0, 1.95, -0.05]}>
-                <sphereGeometry args={[0.1, 12, 12]} />
-                <meshStandardMaterial color={hairColor} roughness={0.9} />
-              </mesh>
-            )}
+            <mesh position={[0, 0.38, 0]} castShadow>
+              <sphereGeometry args={[0.11, 12, 12]} />
+              <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.5} />
+            </mesh>
+            <mesh position={[0, 0.2, 0]} castShadow>
+              <cylinderGeometry args={[0.085, 0.1, 0.28, 10]} />
+              <meshStandardMaterial color={bodyColor} roughness={0.7} metalness={0.2} />
+            </mesh>
+            <mesh position={[0, 0.05, 0.05]} castShadow>
+              <boxGeometry args={[0.22, 0.1, 0.32]} />
+              <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.4} />
+            </mesh>
+          </group>
+        ))}
+
+        {/* chassis: painted plating over a dark waist joint */}
+        <mesh position={[0, 0.78, 0]} castShadow>
+          <cylinderGeometry args={[0.16, 0.16, 0.12, 10]} />
+          <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.5} />
+        </mesh>
+        <RoundedBox args={[0.62, 0.66, 0.42]} radius={0.09} smoothness={4} position={[0, 1.16, 0]} castShadow>
+          <meshStandardMaterial color={bodyColor} roughness={0.55} metalness={0.25} />
+        </RoundedBox>
+        {/* chest plate -- variant per robot so teammates read as individuals */}
+        <RoundedBox
+          args={chassisVariant === 0 ? [0.34, 0.2, 0.04] : chassisVariant === 1 ? [0.22, 0.3, 0.04] : [0.3, 0.3, 0.04]}
+          radius={0.02}
+          smoothness={3}
+          position={[0, 1.16, 0.22]}
+        >
+          <meshStandardMaterial color={PALETTE.robotTrim} roughness={0.5} metalness={0.4} />
+        </RoundedBox>
+        {/* status collar */}
+        <mesh position={[0, 1.46, 0]}>
+          <torusGeometry args={[0.2, 0.04, 8, 20]} />
+          <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.45} />
+        </mesh>
+
+        {/* segmented arms: shoulder joint + plated upper arm + gripper claw */}
+        <mesh ref={leftArm} position={[-0.36, 1.3, 0]} castShadow>
+          <capsuleGeometry args={[0.075, 0.36, 4, 8]} />
+          <meshStandardMaterial color={bodyColor} roughness={0.55} metalness={0.25} />
+          <mesh position={[0, 0.2, 0]}>
+            <sphereGeometry args={[0.1, 12, 12]} />
+            <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.5} />
+          </mesh>
+          <Gripper />
+        </mesh>
+        <mesh ref={rightArm} position={[0.36, 1.3, 0]} castShadow>
+          <capsuleGeometry args={[0.075, 0.36, 4, 8]} />
+          <meshStandardMaterial color={bodyColor} roughness={0.55} metalness={0.25} />
+          <mesh position={[0, 0.2, 0]}>
+            <sphereGeometry args={[0.1, 12, 12]} />
+            <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.5} />
+          </mesh>
+          <Gripper />
+        </mesh>
+
+        {/* neck + head with a single lit optic instead of eyes */}
+        <mesh position={[0, 1.56, 0]} castShadow>
+          <cylinderGeometry args={[0.07, 0.07, 0.1, 8]} />
+          <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.5} />
+        </mesh>
+        <RoundedBox args={[0.44, 0.36, 0.38]} radius={0.1} smoothness={4} position={[0, 1.8, 0]} castShadow>
+          <meshStandardMaterial color={bodyColor} roughness={0.55} metalness={0.25} />
+        </RoundedBox>
+        {/* visor recess + optic: the optic carries the agent's live state colour */}
+        <RoundedBox args={[0.34, 0.16, 0.04]} radius={0.02} smoothness={3} position={[0, 1.82, 0.19]}>
+          <meshStandardMaterial color={PALETTE.robotVisor} roughness={0.35} metalness={0.5} />
+        </RoundedBox>
+        <mesh position={[0, 1.82, 0.21]} rotation={[0, 0, Math.PI / 2]}>
+          <capsuleGeometry args={[0.045, 0.12, 4, 8]} />
+          <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={1.1} toneMapped={false} />
+        </mesh>
+        {/* ear servos */}
+        {[-0.24, 0.24].map((x) => (
+          <mesh key={x} position={[x, 1.8, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[0.06, 0.06, 0.06, 10]} />
+            <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.5} />
+          </mesh>
+        ))}
+        {/* antenna -- variant per robot, tip lit with the status colour */}
+        {chassisVariant !== 2 && (
+          <group position={[chassisVariant === 0 ? 0 : 0.13, 1.98, -0.02]}>
+            <mesh position={[0, 0.09, 0]} castShadow>
+              <cylinderGeometry args={[0.012, 0.012, 0.18, 6]} />
+              <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.6} />
+            </mesh>
+            <mesh position={[0, 0.2, 0]}>
+              <sphereGeometry args={[0.045, 10, 10]} />
+              <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.9} toneMapped={false} />
+            </mesh>
           </group>
         )}
-        {/* main-claude gets a subtle crown ring */}
+        {/* main-claude keeps the team-lead crown */}
         {isMain && (
-          <mesh position={[0, 1.86, 0]}>
+          <mesh position={[0, 2.04, 0]}>
             <torusGeometry args={[0.16, 0.03, 8, 16]} />
             <meshStandardMaterial color="#e8b23c" emissive="#e8b23c" emissiveIntensity={0.4} />
           </mesh>
