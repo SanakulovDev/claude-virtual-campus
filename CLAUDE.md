@@ -36,6 +36,14 @@ pnpm dev               # web + api, must stay running
 `0.0.0.0` via `API_HOST` and runs `prisma migrate deploy` on start; `pnpm dev` keeps the
 `127.0.0.1` default).
 
+`prisma generate` is wired into the turbo graph (`dev`/`build`/`typecheck`/`test` all depend
+on it) and into `apps/api`'s `postinstall`. Don't remove either: a generated client that
+disagrees with `schema.prisma` fails `tsc`, so `nest start` never boots and **web still
+serves fine** -- the campus loads and simply has no backend, which reads as "nothing works"
+rather than as a build error. It is `cache: false` deliberately, because the output lands in
+`node_modules` (outside turbo's tracked outputs) where another project sharing pnpm's store
+can clobber it.
+
 ## Architecture boundaries
 
 - `packages/contracts` -- zod schemas + shared TS types + shared 3D layout constants.
@@ -45,6 +53,12 @@ pnpm dev               # web + api, must stay running
 - `packages/project-inspector` -- pure, side-effect-light functions: git identity
   resolution (execFile only, never shell interpolation), technology detection, module
   detection. No NestJS/Prisma types leak in here.
+  Project identity must never depend on a transient condition. A git **timeout** throws
+  `GitUnavailableError` instead of returning `isGitRepository: false`, because answering
+  "not a repo" mints a second `path:` identity and permanently forks a project into a
+  duplicate room; dropping one event (hooks fail open) is the cheaper failure. A **missing
+  git binary** stays a plain `false` -- it answers identically on every call, so the
+  resulting `path:` identity is stable and non-git projects keep working.
 - `packages/event-normalizer` -- pure functions: command classification, file
   classification, secret redaction, hook-payload normalization. No I/O.
 - `apps/api` -- NestJS. Domain modules are thin adapters over the two packages above
@@ -117,21 +131,37 @@ labelled as ambient, stops on any real event, and never produces events of its o
 ## Testing
 
 `pnpm test` runs vitest per workspace. `apps/api`'s integration tests hit a **real**
-Postgres, so `pnpm db:up && pnpm db:migrate` must have run first; the other workspaces are
-pure unit tests and need nothing. A single file:
+Postgres, so `pnpm db:up` must have run first; the other workspaces are pure unit tests and
+need nothing. A single file:
 
 ```bash
 pnpm --filter @campus/api exec vitest run test/events.integration.test.ts
 pnpm --filter @campus/event-normalizer exec vitest run src/redact.test.ts
 ```
 
+### Schema isolation (do not undo)
+
+Anything automated gets its own Postgres schema, never `public`:
+
+| Schema | Used by | Why |
+|---|---|---|
+| `public` | the campus you actually use | real rooms + real event history live here |
+| `campus_test` | `pnpm test` (`apps/api/test/database-url.ts`) | integration tests register temp repos as rooms |
+| `campus_smoke` | `test:e2e`, `test:redesign`, `screenshots` | these run `migrate reset --force` |
+
+These suites create throwaway git repos and register them as permanent rooms, and two of
+the scripts reset the database outright -- pointed at `public` they bury (and wipe) the real
+campus. `apps/api/test/setup.ts` therefore **assigns** `DATABASE_URL` rather than defaulting
+it, so an exported dev value cannot win; `test/global-setup.ts` provisions the schema per run.
+
 `apps/api/vitest.config.ts` uses the swc plugin, not esbuild -- NestJS DI needs
-`emitDecoratorMetadata`, which esbuild does not emit. Test env defaults live in
-`apps/api/test/setup.ts`.
+`emitDecoratorMetadata`, which esbuild does not emit.
 
 To exercise the pipeline without Claude Code, `pnpm demo:events` (or `demo:php`,
 `demo:python`, `demo:go`, `demo:attention`) creates real temp git repos and POSTs real hook
-payloads to the real endpoint -- there is no fake frontend path.
+payloads to the real endpoint -- there is no fake frontend path. Demos hit whatever API is
+running, so they *do* land in your campus; `pnpm db:prune` clears rooms whose directory no
+longer exists (`--dry-run` to preview).
 
 ## Commands required before calling anything done
 
@@ -140,8 +170,12 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
-pnpm test:e2e
+pnpm test:e2e   # stop `pnpm dev` first -- see below
 ```
+
+`test:e2e` starts its own API and web on the same ports `pnpm dev` uses, so with the dev
+stack running it fails as `TypeError: fetch failed / ECONNRESET`, which looks like a broken
+pipeline rather than a port clash. Stop `pnpm dev` before running it.
 
 ## Longer references
 

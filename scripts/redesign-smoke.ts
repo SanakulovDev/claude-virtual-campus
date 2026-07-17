@@ -6,7 +6,9 @@ import { chromium, type Browser, type Page } from 'playwright';
 import { simulatePhp, simulatePython, simulateGo, simulateAttention } from './demo-events';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const DATABASE_URL = 'postgresql://campus:campus@localhost:5433/campus?schema=public';
+// Own schema, never `public`: this script runs `migrate reset --force`, which would wipe
+// the campus you actually use. Scoped here, the reset only ever drops throwaway fixtures.
+const DATABASE_URL = 'postgresql://campus:campus@localhost:5433/campus?schema=campus_smoke';
 const API_URL = 'http://localhost:4000';
 const WEB_URL = 'http://localhost:3100';
 const SHOTS = path.join(ROOT, 'artifacts', 'redesign');

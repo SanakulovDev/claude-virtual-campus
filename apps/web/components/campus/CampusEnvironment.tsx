@@ -1,12 +1,17 @@
 'use client';
 
 import { PALETTE } from '../../lib/theme';
+import { ISLAND_MIN_RADIUS } from '../../selectors/campus-layout';
 
-const ISLAND_R = 60;
+interface CampusEnvironmentProps {
+  /** Sized to the studios on it -- see calculateIslandRadius. */
+  radius?: number;
+}
 
 /** The floating campus island: a grass top over a tapered earthy landmass, framed by soft
  * daylight and gentle fog. A lit architectural model, not a dark game level. No textures. */
-export function CampusEnvironment() {
+export function CampusEnvironment({ radius = ISLAND_MIN_RADIUS }: CampusEnvironmentProps) {
+  const ISLAND_R = radius;
   return (
     <>
       <color attach="background" args={[PALETTE.sceneBackground]} />
@@ -42,9 +47,10 @@ export function CampusEnvironment() {
         <cylinderGeometry args={[ISLAND_R, ISLAND_R * 0.96, 1.4, 96]} />
         <meshStandardMaterial color={PALETTE.grassEdge} roughness={1} />
       </mesh>
-      {/* one smooth earthy cone -> the whole landmass tapering to a point below */}
-      <mesh position={[0, -14, 0]}>
-        <coneGeometry args={[ISLAND_R * 0.95, 27, 80]} />
+      {/* one smooth earthy cone -> the whole landmass tapering to a point below. Height and
+          depth track the radius so the island keeps its silhouette at any campus size. */}
+      <mesh position={[0, -0.5 - (ISLAND_R * 0.45) / 2, 0]}>
+        <coneGeometry args={[ISLAND_R * 0.95, ISLAND_R * 0.45, 80]} />
         <meshStandardMaterial color={PALETTE.earth} roughness={1} />
       </mesh>
     </>

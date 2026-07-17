@@ -4,7 +4,9 @@ import { fileURLToPath } from 'node:url';
 import { simulatePhp, simulatePython, simulateGo } from './demo-events';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const DATABASE_URL = 'postgresql://campus:campus@localhost:5433/campus?schema=public';
+// Own schema, never `public`: this script migrates and fills a campus with demo rooms, and
+// must not touch the campus you actually use. `migrate deploy` below creates it if absent.
+const DATABASE_URL = 'postgresql://campus:campus@localhost:5433/campus?schema=campus_smoke';
 const API_URL = 'http://localhost:4000';
 const WEB_URL = 'http://localhost:3100';
 

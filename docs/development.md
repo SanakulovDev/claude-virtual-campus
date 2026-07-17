@@ -39,8 +39,13 @@ pnpm typecheck      # tsc --noEmit across all workspaces
 pnpm test           # unit + integration tests (needs the database up)
 pnpm test:e2e       # full-stack smoke test (starts its own db/api/web)
 pnpm test:redesign  # headless-browser UI smoke -> artifacts/redesign/*.png
-pnpm screenshots    # capture docs/images/*.png from a real browser (resets the dev DB)
+pnpm screenshots    # capture docs/images/*.png from a real browser
 ```
+
+Every one of those runs in its own Postgres schema (`campus_test` for `pnpm test`,
+`campus_smoke` for the three scripts), so none of them can add rooms to -- or reset -- the
+campus you actually use in `public`. Keep it that way: the scripts run
+`prisma migrate reset --force`, which against `public` wipes real projects and their history.
 
 Database helpers:
 
@@ -48,8 +53,14 @@ Database helpers:
 pnpm db:up          # start Postgres in Docker
 pnpm db:down        # stop it
 pnpm db:migrate     # apply migrations
+pnpm db:prune       # drop rooms whose project directory no longer exists (--dry-run to preview)
 pnpm db:reset       # wipe the dev campus to empty
 ```
+
+`db:prune` is the cleanup for demo runs: `pnpm demo:*` posts to whatever API is running, so
+its throwaway repos become real rooms in your campus. Prune keys off a missing directory
+only, so a project on an unmounted drive counts as missing -- it is manual for that reason,
+and a pruned project returns on its next hook event.
 
 ## Run the whole stack in Docker
 

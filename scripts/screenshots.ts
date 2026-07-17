@@ -12,11 +12,14 @@ import { simulatePhp, simulateGo, simulateAttention } from './demo-events';
  * Captures the README screenshots into docs/images from a real browser against a real,
  * freshly-reset campus. Deterministic: a single "prog.bts" studio staffed by a fixed team
  * (Claude/Lucy/Jarvis/Anna) via .claude/campus.json, plus php/go studios for the overview.
- * The DB is reset before AND after, so no screenshot fixture is left in the normal database.
+ * Runs entirely in its own `campus_smoke` schema, so no screenshot fixture ever reaches --
+ * and no reset here ever wipes -- the campus you actually use.
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const DATABASE_URL = 'postgresql://campus:campus@localhost:5433/campus?schema=public';
+// Own schema, never `public`: resetDb() runs `migrate reset --force` before AND after, which
+// would wipe the campus you actually use. Scoped here, it only drops screenshot fixtures.
+const DATABASE_URL = 'postgresql://campus:campus@localhost:5433/campus?schema=campus_smoke';
 const API_URL = 'http://localhost:4000';
 const WEB_URL = 'http://localhost:3100';
 const SHOTS = path.join(ROOT, 'docs', 'images');

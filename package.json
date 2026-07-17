@@ -19,6 +19,7 @@
     "db:down": "docker compose down",
     "db:migrate": "pnpm --filter @campus/api exec prisma migrate deploy",
     "db:reset": "pnpm --filter @campus/api exec prisma migrate reset --force --skip-seed",
+    "db:prune": "tsx scripts/db-prune.ts",
     "db:seed": "pnpm --filter @campus/api exec prisma db seed",
     "demo:events": "tsx scripts/demo-events.ts all",
     "demo:php": "tsx scripts/demo-events.ts php",

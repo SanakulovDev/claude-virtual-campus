@@ -8,8 +8,17 @@ export interface StudioPlacement {
   ring: number;
 }
 
+import { STUDIO_HALF_DEPTH, STUDIO_HALF_WIDTH } from './studio-layout';
+
 const HUB_CLEAR = 21; // radius of the innermost ring
 const RING_SPACING = 20;
+
+/** Smallest island: still has to hold the hub and its plaza when no project is connected. */
+export const ISLAND_MIN_RADIUS = 26;
+/** Lawn left beyond the outermost studio. Raise for more breathing room, lower to tighten. */
+const ISLAND_MARGIN = 6;
+/** A studio's own reach: half-diagonal of its platform, so any rotation still fits. */
+const STUDIO_REACH = Math.hypot(STUDIO_HALF_WIDTH + 0.5, STUDIO_HALF_DEPTH + 0.5);
 
 function slotsInRing(ring: number): number {
   return 6 * (ring + 1);
@@ -44,6 +53,21 @@ export function calculateStudioPlacement(index: number): StudioPlacement {
     outward: [Math.cos(angle), Math.sin(angle)],
     ring,
   };
+}
+
+/**
+ * Island radius for a campus of `projectCount` studios: the outermost occupied ring plus the
+ * studios standing on it plus a margin of lawn.
+ *
+ * Sized to content on purpose. A fixed radius big enough for a large campus leaves a small one
+ * marooned in empty grass -- rings only reach 21 at ring 0, so three studios inside a radius-60
+ * island were surrounded by ~40 units of nothing, and the overview camera framed all of it.
+ */
+export function calculateIslandRadius(projectCount: number): number {
+  if (projectCount <= 0) return ISLAND_MIN_RADIUS;
+  const outerRing = calculateStudioPlacement(projectCount - 1).ring;
+  const outerRadius = HUB_CLEAR + outerRing * RING_SPACING;
+  return Math.max(ISLAND_MIN_RADIUS, outerRadius + STUDIO_REACH + ISLAND_MARGIN);
 }
 
 /** Coarse level-of-detail: nearer rings render full detail, far rings simplify. */

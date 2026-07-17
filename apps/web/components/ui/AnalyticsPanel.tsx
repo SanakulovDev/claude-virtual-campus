@@ -36,7 +36,8 @@ export function AnalyticsPanel() {
   const perProject = list
     .map((p) => {
       const active = p.agents.filter((a) => selectAgentVisualState(a) !== 'idle').length;
-      return { name: p.name, ratio: p.agents.length ? active / p.agents.length : 0, state: selectProjectVisualState(p.agents) };
+      // Keyed by id, not name: two projects can share a directory basename.
+      return { id: p.id, name: p.name, ratio: p.agents.length ? active / p.agents.length : 0, state: selectProjectVisualState(p.agents) };
     })
     .sort((a, b) => b.ratio - a.ratio)
     .slice(0, 4);
@@ -51,7 +52,7 @@ export function AnalyticsPanel() {
       <div className="mt-3 space-y-2">
         <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Project Activity</div>
         {perProject.map((p) => (
-          <Bar key={p.name} label={p.name} value={p.ratio} color={STATE_COLOR[p.state]} />
+          <Bar key={p.id} label={p.name} value={p.ratio} color={STATE_COLOR[p.state]} />
         ))}
       </div>
     </div>

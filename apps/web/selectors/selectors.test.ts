@@ -7,8 +7,8 @@ import {
 } from './visual-state.selector';
 import { selectProjectVisualState } from './project-status.selector';
 import { summarizeAgentAction, summarizeTimelineEntry } from './activity-summary.selector';
-import { calculateStudioPlacement } from './campus-layout';
-import { deskPosition, assignDesks } from './studio-layout';
+import { calculateStudioPlacement, calculateIslandRadius, ISLAND_MIN_RADIUS } from './campus-layout';
+import { deskPosition, assignDesks, STUDIO_HALF_WIDTH } from './studio-layout';
 import { shouldCommitMove, MOVEMENT_DEBOUNCE_MS } from './movement';
 import type { AgentRow, TimelineEntry } from '../lib/types';
 
@@ -28,6 +28,34 @@ function agent(activity: AgentActivity, extra: Partial<AgentRow> = {}): AgentRow
     ...extra,
   };
 }
+
+describe('island sizing', () => {
+  it('keeps an empty campus at the floor radius rather than a dot', () => {
+    expect(calculateIslandRadius(0)).toBe(ISLAND_MIN_RADIUS);
+  });
+
+  it('never lets a studio hang off the island edge', () => {
+    // The invariant that matters: whatever the project count, the outermost studio's far
+    // corner still lands on grass.
+    for (let count = 1; count <= 40; count += 1) {
+      const radius = calculateIslandRadius(count);
+      for (let i = 0; i < count; i += 1) {
+        const p = calculateStudioPlacement(i).position;
+        const reach = Math.hypot(p[0], p[2]) + STUDIO_HALF_WIDTH;
+        expect(radius).toBeGreaterThanOrEqual(reach);
+      }
+    }
+  });
+
+  it('grows with the campus instead of staying fixed', () => {
+    expect(calculateIslandRadius(30)).toBeGreaterThan(calculateIslandRadius(3));
+  });
+
+  it('sizes a small campus well inside the old fixed radius of 60', () => {
+    // The dead-lawn bug: 3 studios sat on ring 0 (radius 21) inside a radius-60 island.
+    expect(calculateIslandRadius(3)).toBeLessThan(45);
+  });
+});
 
 describe('visual state mapping', () => {
   it.each<[AgentActivity, string]>([
