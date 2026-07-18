@@ -42,4 +42,16 @@ describe('resolveProject', () => {
     expect(project.remoteUrl).toBeNull();
     expect(project.technologyProfile?.primaryLanguage).toBe('Go');
   });
+
+  it('gives the same non-git identity from the project root and a subdirectory', async () => {
+    const dir = await makeTmpDir();
+    const { mkdir } = await import('node:fs/promises');
+    await mkdir(path.join(dir, '.claude'), { recursive: true });
+    await mkdir(path.join(dir, 'src'), { recursive: true });
+
+    const fromRoot = await resolveProject(dir);
+    const fromSub = await resolveProject(path.join(dir, 'src'));
+    expect(fromSub.projectKey).toBe(fromRoot.projectKey);
+    expect(fromSub.rootPath).toBe(fromRoot.rootPath);
+  });
 });

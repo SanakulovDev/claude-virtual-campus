@@ -1,6 +1,7 @@
 import type { ResolvedProject } from '@campus/contracts';
 import { resolveGitInfo } from './git';
 import { computeProjectKey, deriveProjectName, resolveStableRootPath } from './projectKey';
+import { resolvePathAnchor } from './pathAnchor';
 import { detectTechnologyProfile } from './technology/detect';
 
 /**
@@ -10,8 +11,11 @@ import { detectTechnologyProfile } from './technology/detect';
  */
 export async function resolveProject(cwd: string): Promise<ResolvedProject> {
   const gitInfo = await resolveGitInfo(cwd);
-  const projectKey = computeProjectKey(gitInfo);
-  const rootPath = gitInfo.isGitRepository ? resolveStableRootPath(gitInfo) : cwd;
+  const anchored = gitInfo.isGitRepository
+    ? gitInfo
+    : { ...gitInfo, rootPath: await resolvePathAnchor(cwd) };
+  const projectKey = computeProjectKey(anchored);
+  const rootPath = anchored.isGitRepository ? resolveStableRootPath(anchored) : anchored.rootPath;
   const technologyProfile = await detectTechnologyProfile(rootPath).catch(() => null);
 
   return {
