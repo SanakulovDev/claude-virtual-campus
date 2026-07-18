@@ -28,10 +28,14 @@ export class RunsService implements OnModuleInit {
     });
   }
 
-  async start(projectId: string, prompt: string): Promise<CampusRun> {
+  private assertLoopback() {
     if (!isLoopbackHost(resolveApiHost())) {
       throw new ForbiddenException('runs are disabled on non-loopback binds');
     }
+  }
+
+  async start(projectId: string, prompt: string): Promise<CampusRun> {
+    this.assertLoopback();
     const project = await this.prisma.project.findUnique({ where: { id: projectId } });
     if (!project) throw new NotFoundException(`Project ${projectId} not found`);
 
@@ -52,7 +56,13 @@ export class RunsService implements OnModuleInit {
     const child = execFile(
       process.env.CLAUDE_BIN ?? 'claude',
       ['-p', run.prompt, '--output-format', 'text'],
-      { cwd, timeout: RUN_TIMEOUT_MS, maxBuffer: MAX_BUFFER },
+      {
+        cwd,
+        timeout: RUN_TIMEOUT_MS,
+        maxBuffer: MAX_BUFFER,
+        // hooks reach the campus via HTTP, never the DB -- don't hand the child our credentials
+        env: { ...process.env, DATABASE_URL: undefined } as NodeJS.ProcessEnv,
+      },
       (error, stdout, stderr) => {
         void this.finalize(run.id, error, stdout, stderr);
       },
@@ -83,6 +93,7 @@ export class RunsService implements OnModuleInit {
   }
 
   async stop(runId: string): Promise<CampusRun> {
+    this.assertLoopback();
     const run = await this.prisma.campusRun.findUnique({ where: { id: runId } });
     if (!run) throw new NotFoundException(`Run ${runId} not found`);
     if (run.status !== 'RUNNING') throw new ConflictException('run is not running');
@@ -101,6 +112,7 @@ export class RunsService implements OnModuleInit {
   }
 
   async listForProject(projectId: string): Promise<CampusRun[]> {
+    this.assertLoopback();
     return this.prisma.campusRun.findMany({
       where: { projectId },
       orderBy: { startedAt: 'desc' },

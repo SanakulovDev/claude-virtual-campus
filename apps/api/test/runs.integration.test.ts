@@ -9,11 +9,13 @@ import { PrismaClient } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { RunsService } from '../src/runs/runs.service';
 
-/** Stub claude binary: prints a marker + the prompt; sleeps when STUB_SLEEP is set;
- * exits non-zero when the prompt contains "fail-me". */
+/** Stub claude binary: prints a marker + the prompt (plus the DATABASE_URL it sees, to
+ * prove the child never inherits it); sleeps when STUB_SLEEP is set; exits non-zero when
+ * the prompt contains "fail-me". */
 const STUB = `#!/bin/sh
 if echo "$2" | grep -q fail-me; then echo "boom" >&2; exit 3; fi
 if [ -n "$STUB_SLEEP" ]; then sleep "$STUB_SLEEP"; fi
+echo "db:[$DATABASE_URL]"
 echo "stub-result: $2"
 `;
 
@@ -74,6 +76,8 @@ describe('runs (integration)', () => {
     expect(done.status).toBe('COMPLETED');
     expect(done.resultText).toContain('stub-result: say hello');
     expect(done.exitCode).toBe(0);
+    // DATABASE_URL is stripped from the spawned child's env -- it sees an empty value.
+    expect(done.resultText).toContain('db:[]');
   });
 
   it('marks non-zero exits FAILED with the stderr tail', async () => {
@@ -173,5 +177,20 @@ describe('runs (integration)', () => {
       .expect(200);
     expect(list.body).toHaveLength(2);
     expect(list.body[0].prompt).toBe('two');
+  });
+
+  it('disables start/list/stop on a non-loopback bind', async () => {
+    const project = await makeProject('non-loopback');
+    process.env.API_HOST = '0.0.0.0';
+    try {
+      await request(app.getHttpServer())
+        .post(`/api/projects/${project.id}/runs`)
+        .send({ prompt: 'should be blocked' })
+        .expect(403);
+      await request(app.getHttpServer()).get(`/api/projects/${project.id}/runs`).expect(403);
+      await request(app.getHttpServer()).post(`/api/runs/some-run-id/stop`).expect(403);
+    } finally {
+      delete process.env.API_HOST;
+    }
   });
 });

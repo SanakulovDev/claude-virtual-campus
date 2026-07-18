@@ -10,7 +10,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { SessionsService } from './sessions/sessions.service';
-import { resolveApiHost } from './config/api-host';
+import { isLoopbackHost, resolveApiHost } from './config/api-host';
 
 const MAX_JSON_BODY_BYTES = '512kb';
 
@@ -18,6 +18,15 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
   const { json } = await import('express');
   app.use(json({ limit: MAX_JSON_BODY_BYTES }));
+
+  // DNS-rebinding protection: a hostile page can point its own domain at 127.0.0.1 and
+  // bypass CORS via same-origin requests. Reject anything not addressed to localhost.
+  app.use((req: import('express').Request, res: import('express').Response, next: import('express').NextFunction) => {
+    const hostname = (req.headers.host ?? '').replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
+    if (isLoopbackHost(hostname)) return next();
+    return res.status(403).json({ message: 'requests must be addressed to localhost' });
+  });
+
   app.enableCors({ origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000' });
 
   await app.get(SessionsService).markStaleSessionsDisconnected();
