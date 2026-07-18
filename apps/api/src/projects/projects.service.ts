@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ProjectResolverService } from '../project-resolver/project-resolver.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { SOCKET_EVENTS } from '@campus/contracts';
-import { calculateRoomPosition, calculateRoomTemplate } from './room-layout';
+import { calculateRoomTemplate } from './room-layout';
 
 const execFileAsync = promisify(execFile);
 
@@ -60,7 +60,6 @@ export class ProjectsService {
     }
 
     const isNew = !existing;
-    const position = calculateRoomPosition(isNew ? await this.prisma.project.count() : 0);
     // Native upsert compiles to INSERT ... ON CONFLICT, so two concurrent first events
     // both land on the same row instead of the loser 500ing on the unique index.
     const project = await this.prisma.project.upsert({
@@ -77,8 +76,8 @@ export class ProjectsService {
         rootPath: resolved.rootPath,
         remoteUrl: resolved.remoteUrl,
         isGitRepository: resolved.isGitRepository,
-        roomPositionX: position.x,
-        roomPositionZ: position.z,
+        roomPositionX: 0,
+        roomPositionZ: 0,
       },
     });
 
