@@ -1,4 +1,8 @@
-// ponytail: stub until Task 8 wires the real kiosk-mode source.
+'use client';
+
+/** True when the page runs as a wall/desk display (?kiosk=1): HUD hidden, camera
+ * auto-directed, no pointer input expected. Read once -- kiosk devices don't navigate. */
 export function useKioskMode(): boolean {
-  return false;
+  if (typeof window === 'undefined') return false;
+  return new URLSearchParams(window.location.search).get('kiosk') === '1';
 }

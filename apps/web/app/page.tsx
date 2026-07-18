@@ -3,6 +3,8 @@
 import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useCampusSocket } from '../hooks/useCampusSocket';
+import { useKioskMode } from '../hooks/useKioskMode';
+import { useKioskDirector } from '../hooks/useKioskDirector';
 import { CampusTopBar } from '../components/ui/CampusTopBar';
 import { ProjectDock } from '../components/ui/ProjectDock';
 import { InspectorDrawer } from '../components/ui/InspectorDrawer';
@@ -19,6 +21,8 @@ const CampusScene = dynamic(() => import('../components/campus/CampusScene').the
 
 export default function Page() {
   useCampusSocket();
+  const kiosk = useKioskMode();
+  useKioskDirector();
   const closeInspector = useCampusStore((s) => s.closeInspector);
   const stopFollowing = useCampusStore((s) => s.stopFollowingAgent);
   const cameraMode = useCampusStore((s) => s.camera.mode);
@@ -35,18 +39,22 @@ export default function Page() {
 
   return (
     <div className="flex h-screen flex-col bg-[#eef1f5]">
-      <CampusTopBar />
+      {!kiosk && <CampusTopBar />}
       <div className="flex min-h-0 flex-1">
-        <ProjectDock />
+        {!kiosk && <ProjectDock />}
         <main className="relative min-w-0 flex-1" data-testid="campus-canvas">
           <CampusScene />
-          <AnalyticsPanel />
-          <CampusStatusPill />
-          <InspectorDrawer />
-          <ApprovalDrawer />
+          {!kiosk && (
+            <>
+              <AnalyticsPanel />
+              <CampusStatusPill />
+              <InspectorDrawer />
+              <ApprovalDrawer />
+            </>
+          )}
         </main>
       </div>
-      <ContextTimeline />
+      {!kiosk && <ContextTimeline />}
     </div>
   );
 }

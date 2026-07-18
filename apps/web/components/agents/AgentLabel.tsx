@@ -2,6 +2,7 @@
 
 import { Html } from '@react-three/drei';
 import { HTML_Z_RANGE, STATE_COLOR, STATE_LABEL } from '../../lib/theme';
+import { useKioskMode } from '../../hooks/useKioskMode';
 import type { SimplifiedAgentVisualState } from '../../selectors/visual-state.selector';
 
 /**
@@ -24,6 +25,7 @@ export function AgentLabel({
   resting?: boolean;
   selected: boolean;
 }) {
+  const kiosk = useKioskMode();
   // Resting (cosmetic) reads before ambient/state -- a slate dot + "Resting · zzz".
   const dotColor = resting ? '#8a93a0' : ambientLabel ? '#e0a94a' : STATE_COLOR[state];
   const textColor = resting ? '#aeb6c0' : ambientLabel ? '#f2c877' : '#cdd3db';
@@ -40,7 +42,7 @@ export function AgentLabel({
           borderRadius: 9,
           background: selected ? 'rgba(56,140,220,0.92)' : 'rgba(15,17,23,0.74)',
           color: '#fff',
-          fontSize: 11,
+          fontSize: kiosk ? 15 : 11,
           whiteSpace: 'nowrap',
           textAlign: 'center',
           lineHeight: 1.25,
@@ -48,11 +50,11 @@ export function AgentLabel({
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
           <span style={{ fontWeight: 600 }}>{name}</span>
-          {role && <span style={{ color: '#aeb6c0', fontSize: 9.5 }}>· {role}</span>}
+          {role && <span style={{ color: '#aeb6c0', fontSize: kiosk ? 13 : 9.5 }}>· {role}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 1 }}>
           <span style={{ width: 6, height: 6, borderRadius: 999, background: dotColor }} />
-          <span style={{ color: textColor, fontSize: 9.5 }}>{statusText}</span>
+          <span style={{ color: textColor, fontSize: kiosk ? 13 : 9.5 }}>{statusText}</span>
         </div>
       </div>
     </Html>

@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { Html } from '@react-three/drei';
 import { PALETTE, projectAccent, STATE_COLOR, STATE_ICON, STATE_LABEL, HTML_Z_RANGE } from '../../lib/theme';
+import { useKioskMode } from '../../hooks/useKioskMode';
 import type { AgentRow, ProjectRow } from '../../lib/types';
 import { roomPlacement, deskLocal, tableLocal, ROOM_W, ROOM_D } from '../../selectors/office-layout';
 import { selectProjectVisualState } from '../../selectors/project-status.selector';
@@ -40,6 +41,7 @@ export function OfficeRoom({
   detail: 'full' | 'reduced';
   onSelect: () => void;
 }) {
+  const kiosk = useKioskMode();
   const placement = useMemo(() => roomPlacement(index), [index]);
   const accent = projectAccent(project.projectKey);
   const state = selectProjectVisualState(project.agents);
@@ -86,7 +88,7 @@ export function OfficeRoom({
         <button
           onClick={onSelect}
           className="pointer-events-auto whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold shadow-sm"
-          style={{ background: 'rgba(20,24,31,0.85)', color: '#f5f6f8', borderColor: accent }}
+          style={{ background: 'rgba(20,24,31,0.85)', color: '#f5f6f8', borderColor: accent, fontSize: kiosk ? '1.05rem' : undefined }}
           title={STATE_LABEL[state]}
         >
           <span style={{ color: STATE_COLOR[state] }}>{STATE_ICON[state]}</span> {project.name}
