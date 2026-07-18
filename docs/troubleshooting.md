@@ -60,3 +60,14 @@ permission handling takes over.
 Each teammate's identity is keyed on `(session + agentType)` and its name is persisted, so
 restarts and reconnects reuse the same teammate. You can rename any agent from the inspector
 (the raw ids stay in **Developer details**); "Reset name" restores the generated name.
+
+## One project shows up as two rooms
+
+Fixed causes: missing `origin` remote (now falls back to any remote), token/port variants
+of the same remote URL, non-git projects keyed by cwd instead of their `.claude` root, and
+transient git failures. Rooms created before the fix are merged manually:
+
+```bash
+pnpm db:dedupe --dry-run   # list duplicate groups
+pnpm db:dedupe             # merge history into one room per project directory
+```
