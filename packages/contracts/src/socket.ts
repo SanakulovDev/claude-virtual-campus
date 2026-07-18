@@ -2,6 +2,7 @@ export const SOCKET_EVENTS = {
   bootstrap: 'campus:bootstrap',
   projectCreated: 'project:created',
   projectUpdated: 'project:updated',
+  projectRemoved: 'project:removed',
   projectTechnologyDetected: 'project:technology_detected',
   projectModuleDetected: 'project:module_detected',
   sessionStarted: 'session:started',

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { buildBootstrapSnapshot } from '../realtime/bootstrap';
@@ -43,5 +43,10 @@ export class ProjectsController {
   @Post('api/projects/:projectId/technologies/refresh')
   refreshTechnologies(@Param('projectId') projectId: string) {
     return this.projects.refreshTechnologies(projectId);
+  }
+
+  @Delete('api/projects/:projectId')
+  remove(@Param('projectId') projectId: string) {
+    return this.projects.remove(projectId);
   }
 }

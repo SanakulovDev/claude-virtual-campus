@@ -115,6 +115,16 @@ export class ProjectsService {
     return project;
   }
 
+  /** Removes a room the user no longer wants to watch. Sessions/agents/events/tasks cascade
+   * from Project. A still-live project simply reappears on its next hook event. */
+  async remove(id: string) {
+    const existing = await this.prisma.project.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException(`Project ${id} not found`);
+    await this.prisma.project.delete({ where: { id } });
+    this.realtime.emitToCampus(SOCKET_EVENTS.projectRemoved, { projectId: id });
+    return { removed: id };
+  }
+
   async getEvents(projectId: string, limit = 100) {
     await this.getById(projectId);
     return this.prisma.claudeEvent.findMany({
