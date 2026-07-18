@@ -6,63 +6,69 @@ import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useCampusStore } from '../../stores/campusStore';
-import { calculateStudioPlacement } from '../../selectors/campus-layout';
-import { assignDesks, locationPosition } from '../../selectors/studio-layout';
+import { useKioskMode } from '../../hooks/useKioskMode';
+import { buildingBounds, roomPlacement, roomToWorld, deskLocal, reviewSpot, ROOM_W, ROOM_D } from '../../selectors/office-layout';
+import { assignDesks } from '../../selectors/desk-assignment';
 import { selectAgentVisualState, selectStudioLocation } from '../../selectors/visual-state.selector';
 import type { ProjectRow } from '../../lib/types';
 
-interface Shot {
-  sig: string;
-  camera: THREE.Vector3;
-  target: THREE.Vector3;
-}
+const ISO_DIR = new THREE.Vector3(1, 1.15, 1).normalize();
+const CAM_DIST = 120;
 
-function studioWorldCenter(index: number): { center: THREE.Vector3; outward: THREE.Vector3 } {
-  const p = calculateStudioPlacement(index);
-  return {
-    center: new THREE.Vector3(p.position[0], 1.4, p.position[2]),
-    outward: new THREE.Vector3(p.outward[0], 0, p.outward[1]).normalize(),
-  };
-}
+interface Shot { sig: string; target: THREE.Vector3; zoom: number }
 
 function agentWorldPosition(projects: ProjectRow[], agentId: string): THREE.Vector3 | null {
   for (let i = 0; i < projects.length; i += 1) {
     const project = projects[i]!;
-    const assigned = assignDesks(project.agents);
-    const entry = assigned.find((a) => a.agent.id === agentId);
+    const entry = assignDesks(project.agents).find((a) => a.agent.id === agentId);
     if (!entry) continue;
     const loc = selectStudioLocation(selectAgentVisualState(entry.agent));
-    const local = locationPosition(loc, entry.deskIndex, 0, 1);
-    const placement = calculateStudioPlacement(i);
-    const v = new THREE.Vector3(local[0], 1.1, local[2]);
-    v.applyAxisAngle(new THREE.Vector3(0, 1, 0), placement.rotationY);
-    v.add(new THREE.Vector3(placement.position[0], 0, placement.position[2]));
-    return v;
+    if (loc === 'review-screen') {
+      const s = reviewSpot(0, 1);
+      return new THREE.Vector3(s[0], 1, s[2]);
+    }
+    const d = deskLocal(entry.deskIndex);
+    const w = roomToWorld(i, [d[0], 0, d[2] + 0.95]);
+    return new THREE.Vector3(w[0], 1, w[2]);
   }
   return null;
 }
 
-/** Camera with overview / project-focus / agent-follow modes. Transitions are eased and
- * interruptible: grabbing the orbit controls cancels an in-flight move. */
+/** Ortho zoom that fits a world-space box at the fixed iso angle, with margin. */
+function fitZoom(size: { width: number; height: number }, minX: number, maxX: number, minZ: number, maxZ: number): number {
+  const corners: THREE.Vector3[] = [];
+  for (const x of [minX, maxX]) for (const z of [minZ, maxZ]) for (const y of [0, 3]) corners.push(new THREE.Vector3(x, y, z));
+  const center = new THREE.Vector3((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
+  const camPos = center.clone().add(ISO_DIR.clone().multiplyScalar(CAM_DIST));
+  const view = new THREE.Matrix4().lookAt(camPos, center, new THREE.Vector3(0, 1, 0)).invert();
+  let maxU = 0.001; let maxV = 0.001;
+  for (const c of corners) {
+    const p = c.clone().applyMatrix4(view);
+    maxU = Math.max(maxU, Math.abs(p.x));
+    maxV = Math.max(maxV, Math.abs(p.y));
+  }
+  return Math.min(size.width / 2 / maxU, size.height / 2 / maxV) * 0.9;
+}
+
+/** Fixed-angle isometric camera with overview / room / follow modes. Transitions eased and
+ * interruptible; grabbing the controls cancels an in-flight move. */
 export function CampusCameraController() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
-  const { camera } = useThree();
+  const { camera, size } = useThree();
   const cameraState = useCampusStore((s) => s.camera);
   const projects = useCampusStore((s) => s.projects);
+  const kiosk = useKioskMode();
   const projectList = Object.values(projects);
   const projectIds = projectList.map((p) => p.id);
 
   const shotRef = useRef<Shot | null>(null);
-  const activeSigRef = useRef<string>('');
+  const activeSigRef = useRef('');
   const progressRef = useRef(1);
 
-  // cancel an in-flight transition when the user grabs the controls
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls) return undefined;
-    const cancel = () => {
-      progressRef.current = 1;
-    };
+    const cancel = () => { progressRef.current = 1; };
     controls.addEventListener('start', cancel);
     return () => controls.removeEventListener('start', cancel);
   }, []);
@@ -70,47 +76,31 @@ export function CampusCameraController() {
   function computeShot(): Shot {
     if (cameraState.mode === 'follow' && cameraState.followedAgentId) {
       const pos = agentWorldPosition(projectList, cameraState.followedAgentId);
-      if (pos) {
-        const outwardIndex = projectIds.indexOf(
-          projectList.find((p) => p.agents.some((a) => a.id === cameraState.followedAgentId))?.id ?? '',
-        );
-        const outward =
-          outwardIndex >= 0 ? studioWorldCenter(outwardIndex).outward : new THREE.Vector3(0, 0, 1);
-        const cam = pos.clone().add(outward.clone().multiplyScalar(9)).add(new THREE.Vector3(0, 7, 0));
-        return { sig: `follow:${cameraState.followedAgentId}`, camera: cam, target: pos };
-      }
+      if (pos) return { sig: `follow:${cameraState.followedAgentId}`, target: pos, zoom: 55 };
     }
 
     if (cameraState.mode === 'room' && cameraState.focusedProjectId) {
       const index = projectIds.indexOf(cameraState.focusedProjectId);
       if (index >= 0) {
-        const { center, outward } = studioWorldCenter(index);
-        const cam = center.clone().add(outward.clone().multiplyScalar(17)).add(new THREE.Vector3(0, 12, 0));
-        return { sig: `room:${cameraState.focusedProjectId}`, camera: cam, target: center.clone().setY(1.2) };
+        const p = roomPlacement(index);
+        const zoom = fitZoom(size, p.center[0] - ROOM_W / 2 - 2, p.center[0] + ROOM_W / 2 + 2, p.center[2] - ROOM_D / 2 - 2, p.center[2] + ROOM_D / 2 + 2);
+        return { sig: `room:${cameraState.focusedProjectId}`, target: new THREE.Vector3(p.center[0], 1, p.center[2]), zoom };
       }
     }
 
-    // overview: frame the centroid of the hub + all studios so the campus stays centred
-    // no matter how few studios there are or which wedge they occupy.
-    const points = [new THREE.Vector3(0, 0, 0)];
-    for (let i = 0; i < projectList.length; i += 1) {
-      const p = calculateStudioPlacement(i).position;
-      points.push(new THREE.Vector3(p[0], 0, p[2]));
-    }
-    const centroid = points.reduce((acc, p) => acc.add(p), new THREE.Vector3()).multiplyScalar(1 / points.length);
-    const spread = Math.max(16, ...points.map((p) => p.distanceTo(centroid))) + 10;
-    const dist = spread * 1.7 + 16;
-    // corner-isometric: whole floating island centred, rooms and agents still read big
+    const b = buildingBounds(projectList.length);
+    const zoom = fitZoom(size, b.minX, b.maxX, b.minZ, b.maxZ);
     return {
-      sig: 'overview',
-      camera: centroid.clone().add(new THREE.Vector3(dist * 0.42, dist * 0.72, dist * 0.56)),
-      target: centroid.clone().setY(3),
+      sig: `overview:${projectList.length}:${size.width}x${size.height}`,
+      target: new THREE.Vector3((b.minX + b.maxX) / 2, 0, 0),
+      zoom,
     };
   }
 
   useFrame((_, delta) => {
     const controls = controlsRef.current;
     if (!controls) return;
+    const ortho = camera as THREE.OrthographicCamera;
     const shot = computeShot();
 
     if (shot.sig !== activeSigRef.current) {
@@ -118,18 +108,20 @@ export function CampusCameraController() {
       shotRef.current = shot;
       progressRef.current = 0;
     } else {
-      shotRef.current = shot; // keep target fresh (e.g. followed agent moving)
+      shotRef.current = shot;
     }
 
     const current = shotRef.current;
     if (current && progressRef.current < 1) {
       progressRef.current = Math.min(1, progressRef.current + delta * 1.6);
-      const e = easeInOut(progressRef.current);
-      camera.position.lerp(current.camera, e * 0.2 + 0.02);
-      controls.target.lerp(current.target, e * 0.2 + 0.02);
+      const e = easeInOut(progressRef.current) * 0.2 + 0.02;
+      controls.target.lerp(current.target, e);
+      ortho.position.lerp(current.target.clone().add(ISO_DIR.clone().multiplyScalar(CAM_DIST)), e);
+      ortho.zoom = THREE.MathUtils.lerp(ortho.zoom, current.zoom, e);
+      ortho.updateProjectionMatrix();
     } else if (current && cameraState.mode === 'follow') {
-      // keep the pivot on the moving agent, but let the user orbit freely around it
       controls.target.lerp(current.target, Math.min(1, delta * 2));
+      ortho.position.lerp(current.target.clone().add(ISO_DIR.clone().multiplyScalar(CAM_DIST)), Math.min(1, delta * 2));
     }
     controls.update();
   });
@@ -140,9 +132,10 @@ export function CampusCameraController() {
       makeDefault
       enableDamping
       dampingFactor={0.08}
+      enableRotate={!kiosk}
+      enablePan={!kiosk}
+      enableZoom={!kiosk}
       maxPolarAngle={Math.PI / 2.15}
-      minDistance={6}
-      maxDistance={400}
     />
   );
 }
