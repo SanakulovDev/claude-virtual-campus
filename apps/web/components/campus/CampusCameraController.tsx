@@ -43,7 +43,7 @@ function fitZoom(size: { width: number; height: number }, minX: number, maxX: nu
   const view = new THREE.Matrix4().lookAt(camPos, center, new THREE.Vector3(0, 1, 0)).invert();
   let maxU = 0.001; let maxV = 0.001;
   for (const c of corners) {
-    const p = c.clone().applyMatrix4(view);
+    const p = c.clone().sub(center).applyMatrix4(view);
     maxU = Math.max(maxU, Math.abs(p.x));
     maxV = Math.max(maxV, Math.abs(p.y));
   }
@@ -84,7 +84,7 @@ export function CampusCameraController() {
       if (index >= 0) {
         const p = roomPlacement(index);
         const zoom = fitZoom(size, p.center[0] - ROOM_W / 2 - 2, p.center[0] + ROOM_W / 2 + 2, p.center[2] - ROOM_D / 2 - 2, p.center[2] + ROOM_D / 2 + 2);
-        return { sig: `room:${cameraState.focusedProjectId}`, target: new THREE.Vector3(p.center[0], 1, p.center[2]), zoom };
+        return { sig: `room:${cameraState.focusedProjectId}:${size.width}x${size.height}`, target: new THREE.Vector3(p.center[0], 1, p.center[2]), zoom };
       }
     }
 
