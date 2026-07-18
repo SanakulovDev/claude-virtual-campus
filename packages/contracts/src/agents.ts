@@ -127,5 +127,6 @@ export const AMBIENT_ACTIVITIES = [
   { key: 'plaza', label: 'visiting the campus plaza', area: 'Campus Plaza' },
   { key: 'chat', label: 'chatting with a teammate', area: 'Campus Plaza' },
   { key: 'walk', label: 'taking a short walk', area: null },
+  { key: 'visit', label: 'visiting a neighbor team', area: null },
 ] as const;
 export type AmbientActivity = (typeof AMBIENT_ACTIVITIES)[number];

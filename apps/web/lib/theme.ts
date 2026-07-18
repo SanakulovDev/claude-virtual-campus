@@ -31,6 +31,20 @@ export const PALETTE = {
   robotServo: '#6d7480',
   robotTrim: '#c2c7cf',
   robotVisor: '#1d2733',
+  /** Agent Lab office system: warm wood + white walls + glass partitions. */
+  officeFloor: '#c9a87c',
+  hallwayFloor: '#b8946a',
+  wall: '#f2efe9',
+  partition: '#e4dfd6',
+  partitionGlass: '#cfe0e8',
+  doorTrim: '#8a7a64',
+  rug: '#7f9c8f',
+  sofa: '#7a8fa6',
+  coffeeMachine: '#3a3f47',
+  screenFrame: '#2b303a',
+  pants: '#4a5160',
+  skinTones: ['#e7c6a5', '#d9a97f', '#c68d5e', '#a96f45', '#8a5a36'],
+  hairColors: ['#2f2a26', '#5b4632', '#8a6f4d', '#b5b0a8', '#c2703f', '#1d1d1f'],
 } as const;
 
 /** Subtle status accents. Colour is never the only signal -- paired with text + icon in UI. */
