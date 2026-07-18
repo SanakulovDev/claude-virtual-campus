@@ -35,6 +35,7 @@ model Project {
   toolExecutions ToolExecution[]
   approvals    ApprovalRequest[]
   snapshots    ActivitySnapshot[]
+  runs         CampusRun[]
 }
 
 model ProjectModule {
@@ -235,4 +236,23 @@ model ActivitySnapshot {
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   summary   Json
   createdAt DateTime @default(now())
+}
+
+enum RunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  STOPPED
+}
+
+model CampusRun {
+  id         String    @id @default(cuid())
+  projectId  String
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  prompt     String
+  status     RunStatus @default(RUNNING)
+  resultText String?
+  exitCode   Int?
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
 }
