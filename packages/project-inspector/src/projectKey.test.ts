@@ -8,6 +8,30 @@ describe('normalizeRemoteUrl', () => {
     const https = normalizeRemoteUrl('https://github.com/acme/widgets.git');
     expect(ssh).toBe(https);
   });
+
+  it('strips embedded userinfo (https token clones)', () => {
+    expect(normalizeRemoteUrl('https://x-access-token:SECRET@github.com/acme/widgets.git')).toBe(
+      normalizeRemoteUrl('https://github.com/acme/widgets.git'),
+    );
+    expect(normalizeRemoteUrl('https://user@github.com/acme/widgets')).toBe(
+      normalizeRemoteUrl('https://github.com/acme/widgets'),
+    );
+  });
+
+  it('strips default ports so ssh:// and scp forms match', () => {
+    expect(normalizeRemoteUrl('ssh://git@github.com:22/acme/widgets.git')).toBe(
+      normalizeRemoteUrl('git@github.com:acme/widgets.git'),
+    );
+    expect(normalizeRemoteUrl('https://github.com:443/acme/widgets')).toBe(
+      normalizeRemoteUrl('https://github.com/acme/widgets'),
+    );
+  });
+
+  it('keeps non-default ports distinct', () => {
+    expect(normalizeRemoteUrl('ssh://git@git.corp:2222/acme/widgets')).not.toBe(
+      normalizeRemoteUrl('ssh://git@git.corp/acme/widgets'),
+    );
+  });
 });
 
 describe('computeProjectKey', () => {

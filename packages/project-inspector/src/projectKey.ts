@@ -6,9 +6,16 @@ import type { GitInfo } from './git';
 export function normalizeRemoteUrl(remoteUrl: string): string {
   let value = remoteUrl.trim().toLowerCase();
   value = value.replace(/\.git$/, '');
-  value = value.replace(/^git@([^:]+):/, 'https://$1/');
-  value = value.replace(/^ssh:\/\/git@/, 'https://');
-  value = value.replace(/^git:\/\//, 'https://');
+  // scp form (git@host:org/repo) -> ssh URL so one pipeline handles everything below
+  value = value.replace(/^git@([^:]+):/, 'ssh://$1/');
+  // userinfo (user:token@) never identifies the repo
+  value = value.replace(/^(\w+):\/\/[^/@]*@/, '$1://');
+  // default ports
+  value = value.replace(/^ssh:\/\/([^/:]+):22\//, 'ssh://$1/');
+  value = value.replace(/^https:\/\/([^/:]+):443\//, 'https://$1/');
+  value = value.replace(/^http:\/\/([^/:]+):80\//, 'http://$1/');
+  // one canonical scheme
+  value = value.replace(/^(?:ssh|git|http):\/\//, 'https://');
   value = value.replace(/\/+$/, '');
   return value;
 }
