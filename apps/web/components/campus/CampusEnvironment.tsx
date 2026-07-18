@@ -1,58 +1,31 @@
 'use client';
 
 import { PALETTE } from '../../lib/theme';
-import { ISLAND_MIN_RADIUS } from '../../selectors/campus-layout';
 
-interface CampusEnvironmentProps {
-  /** Sized to the studios on it -- see calculateIslandRadius. */
-  radius?: number;
-}
-
-/** The floating campus island: a grass top over a tapered earthy landmass, framed by soft
- * daylight and gentle fog. A lit architectural model, not a dark game level. No textures. */
-export function CampusEnvironment({ radius = ISLAND_MIN_RADIUS }: CampusEnvironmentProps) {
-  const ISLAND_R = radius;
+/** Warm interior daylight for the Agent Lab. Roofless open-plan office viewed from a fixed
+ * isometric angle -- an architectural model, not a game level. No textures. */
+export function CampusEnvironment() {
   return (
     <>
       <color attach="background" args={[PALETTE.sceneBackground]} />
-      <fog attach="fog" args={[PALETTE.sceneBackground, 120, 300]} />
-
-      <hemisphereLight args={['#fff6e8', '#b9c3cf', 0.9]} />
-      <ambientLight intensity={0.28} />
+      <hemisphereLight args={['#fff6e8', '#c9c3b8', 0.85]} />
+      <ambientLight intensity={0.35} />
       <directionalLight
-        position={[70, 95, 55]}
-        intensity={1.25}
+        position={[40, 70, 40]}
+        intensity={1.15}
         color="#fff3e2"
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
         shadow-camera-near={1}
-        shadow-camera-far={400}
-        shadow-camera-left={-160}
-        shadow-camera-right={160}
-        shadow-camera-top={160}
-        shadow-camera-bottom={-160}
+        shadow-camera-far={300}
+        shadow-camera-left={-140}
+        shadow-camera-right={140}
+        shadow-camera-top={140}
+        shadow-camera-bottom={-140}
         shadow-bias={-0.0004}
       />
-      {/* cool fill from the opposite side to keep shadows from going flat/grey */}
-      <directionalLight position={[-60, 40, -50]} intensity={0.25} color="#cdd8e6" />
-
-      {/* grass top -- lifted a hair above the earth so their faces never z-fight */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]} receiveShadow>
-        <circleGeometry args={[ISLAND_R, 96]} />
-        <meshStandardMaterial color={PALETTE.grass} roughness={1} />
-      </mesh>
-      {/* thin grass lip so the lawn reads as soil-topped turf from the side */}
-      <mesh position={[0, -0.6, 0]}>
-        <cylinderGeometry args={[ISLAND_R, ISLAND_R * 0.96, 1.4, 96]} />
-        <meshStandardMaterial color={PALETTE.grassEdge} roughness={1} />
-      </mesh>
-      {/* one smooth earthy cone -> the whole landmass tapering to a point below. Height and
-          depth track the radius so the island keeps its silhouette at any campus size. */}
-      <mesh position={[0, -0.5 - (ISLAND_R * 0.45) / 2, 0]}>
-        <coneGeometry args={[ISLAND_R * 0.95, ISLAND_R * 0.45, 80]} />
-        <meshStandardMaterial color={PALETTE.earth} roughness={1} />
-      </mesh>
+      <directionalLight position={[-50, 35, -40]} intensity={0.25} color="#cdd8e6" />
     </>
   );
 }

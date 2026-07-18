@@ -23,7 +23,7 @@ export function CampusScene() {
       onPointerMissed={() => deselect()}
       gl={{ antialias: true }}
     >
-      <CampusEnvironment radius={islandRadius} />
+      <CampusEnvironment />
       <CampusCameraController />
       <CampusHub />
       {/* Above the grass (y 0.08), not below it: an opaque lawn 0.02 higher hid these

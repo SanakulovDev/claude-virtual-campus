@@ -1,5 +1,6 @@
-import type { AgentRow } from '../lib/types';
 import type { StudioLocationKey } from './visual-state.selector';
+
+export { assignDesks } from './desk-assignment';
 
 /**
  * Studio-local coordinates (studio faces +Z). Back status wall at -Z, open review side at
@@ -33,20 +34,6 @@ export function deskPosition(deskIndex: number): [number, number, number] {
   const z = DESK_ROW_Z + row * DESK_ROW_DEPTH;
   // Nudge later rows toward the wall so they stay inside the platform.
   return [x, 0, z - (rowCount - 1) * 0.2];
-}
-
-/**
- * Stable ordering of a studio's agents so desk assignment never shifts: main Claude first,
- * then the rest by id. Returns each agent with its assigned desk index.
- */
-export function assignDesks(agents: AgentRow[]): Array<{ agent: AgentRow; deskIndex: number }> {
-  const ordered = [...agents].sort((a, b) => {
-    const aMain = a.externalAgentId === 'main-claude' ? 0 : 1;
-    const bMain = b.externalAgentId === 'main-claude' ? 0 : 1;
-    if (aMain !== bMain) return aMain - bMain;
-    return a.id.localeCompare(b.id);
-  });
-  return ordered.map((agent, deskIndex) => ({ agent, deskIndex }));
 }
 
 /**

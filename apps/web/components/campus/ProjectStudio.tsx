@@ -123,7 +123,7 @@ export function ProjectStudio({ project, index }: { project: ProjectRow; index: 
 
       {detail === 'full' && (
         <>
-          <PlanningTable active={projectState === 'planning'} />
+          <PlanningTable active={projectState === 'planning'} position={[0, 0, -2.4]} />
           {assigned.map(({ agent, deskIndex }) => (
             <AgentDesk key={deskIndex} position={deskPosition(deskIndex)} monitor={monitorKind(agent)} />
           ))}

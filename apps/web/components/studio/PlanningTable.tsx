@@ -1,14 +1,12 @@
 'use client';
 
 import { PALETTE } from '../../lib/theme';
-import { STUDIO_ANCHORS } from '../../selectors/studio-layout';
 
 /** Shared planning table near the back of the studio. One table for the whole studio -- no
  * per-task planning stations. */
-export function PlanningTable({ active }: { active: boolean }) {
-  const [x, , z] = STUDIO_ANCHORS.planningTable;
+export function PlanningTable({ active, position }: { active: boolean; position: [number, number, number] }) {
   return (
-    <group position={[x, 0, z]}>
+    <group position={position}>
       <mesh position={[0, 0.75, 0]} castShadow receiveShadow>
         <cylinderGeometry args={[1.7, 1.7, 0.16, 32]} />
         <meshStandardMaterial color={PALETTE.planningTable} roughness={0.85} />
