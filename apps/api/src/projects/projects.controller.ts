@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { buildBootstrapSnapshot } from '../realtime/bootstrap';
@@ -48,5 +48,10 @@ export class ProjectsController {
   @Delete('api/projects/:projectId')
   remove(@Param('projectId') projectId: string) {
     return this.projects.remove(projectId);
+  }
+
+  @Post('api/projects/install')
+  install(@Body('path') targetPath: string) {
+    return this.projects.installProject(targetPath);
   }
 }

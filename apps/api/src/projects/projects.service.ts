@@ -1,10 +1,29 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { existsSync, statSync } from 'node:fs';
+import path from 'node:path';
 import type { ResolvedProject } from '@campus/contracts';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectResolverService } from '../project-resolver/project-resolver.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { SOCKET_EVENTS } from '@campus/contracts';
 import { calculateRoomPosition, calculateRoomTemplate } from './room-layout';
+
+const execFileAsync = promisify(execFile);
+
+/** Walk up from here to the monorepo root (where pnpm-workspace.yaml lives), so we can find
+ * the installer script and repo-local tsx regardless of dev vs. compiled dist layout. */
+function findRepoRoot(): string {
+  let dir = __dirname;
+  for (let i = 0; i < 8; i += 1) {
+    if (existsSync(path.join(dir, 'pnpm-workspace.yaml'))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  throw new Error('could not locate the campus repo root');
+}
 
 @Injectable()
 export class ProjectsService {
@@ -123,6 +142,29 @@ export class ProjectsService {
     await this.prisma.project.delete({ where: { id } });
     this.realtime.emitToCampus(SOCKET_EVENTS.projectRemoved, { projectId: id });
     return { removed: id };
+  }
+
+  /** Connect a project from the UI: run the campus installer on a local path (writes only
+   * .claude/). Does NOT create a room -- that still appears on the first real Claude event.
+   * execFile with an args array (never a shell string) so a path can't inject a command. */
+  async installProject(rawPath: string) {
+    if (typeof rawPath !== 'string' || rawPath.trim() === '') {
+      throw new BadRequestException('A project path is required.');
+    }
+    const target = path.resolve(rawPath.trim());
+    if (!existsSync(target) || !statSync(target).isDirectory()) {
+      throw new BadRequestException(`Not a directory: ${target}`);
+    }
+
+    const root = findRepoRoot();
+    const tsx = path.join(root, 'node_modules', '.bin', 'tsx');
+    const installer = path.join(root, 'packages', 'claude-plugin', 'installer', 'install.ts');
+    try {
+      await execFileAsync(tsx, [installer, target], { timeout: 20000 });
+    } catch (error) {
+      throw new BadRequestException(`Installer failed: ${(error as Error).message}`);
+    }
+    return { installed: true, path: target };
   }
 
   async getEvents(projectId: string, limit = 100) {

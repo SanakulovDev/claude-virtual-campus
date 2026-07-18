@@ -28,3 +28,17 @@ export async function renameAgent(agentId: string, name: string | null): Promise
 export async function removeProject(projectId: string): Promise<void> {
   await fetch(apiUrl(`/api/projects/${projectId}`), { method: 'DELETE' });
 }
+
+/** Connect a project from the UI: the server installs campus hooks into the given local path
+ * (touching only .claude/). The room still appears on the first real Claude event. */
+export async function installProject(path: string): Promise<void> {
+  const res = await fetch(apiUrl('/api/projects/install'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ path }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(body?.message ?? `Install failed (${res.status})`);
+  }
+}

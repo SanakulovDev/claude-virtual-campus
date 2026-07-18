@@ -5,6 +5,7 @@ import request from 'supertest';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdtemp, rm, writeFile, realpath } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -61,5 +62,25 @@ describe('project deletion (integration)', () => {
     expect(after.body.find((p: { id: string }) => p.id === project.id)).toBeUndefined();
 
     await request(app.getHttpServer()).delete(`/api/projects/${project.id}`).expect(404);
+  });
+
+  it('installs campus hooks into a project path without touching its manifest', async () => {
+    const dir = await realpath(await mkdtemp(path.join(tmpdir(), 'campus-install-')));
+    cleanupDirs.push(dir);
+    const manifest = '{"name":"demo"}';
+    await writeFile(path.join(dir, 'package.json'), manifest);
+
+    await request(app.getHttpServer())
+      .post('/api/projects/install')
+      .send({ path: dir })
+      .expect((r) => {
+        if (r.status !== 200 && r.status !== 201) throw new Error(`status ${r.status}: ${JSON.stringify(r.body)}`);
+      });
+
+    expect(existsSync(path.join(dir, '.claude/hooks/send-event.sh'))).toBe(true);
+    expect(existsSync(path.join(dir, '.claude/settings.json'))).toBe(true);
+    expect(readFileSync(path.join(dir, 'package.json'), 'utf8')).toBe(manifest);
+
+    await request(app.getHttpServer()).post('/api/projects/install').send({ path: '' }).expect(400);
   });
 });

@@ -46,6 +46,21 @@ export function AgentDesk({ position, monitor }: { position: [number, number, nu
         <cylinderGeometry args={[0.06, 0.1, 0.2, 8]} />
         <meshStandardMaterial color={PALETTE.monitor} />
       </mesh>
+      {/* keyboard: dark base + a lighter key deck, sitting on the desktop in front of the seat */}
+      <group position={[0, 1.03, 0.12]}>
+        <RoundedBox args={[0.82, 0.04, 0.26]} radius={0.015} smoothness={2} castShadow>
+          <meshStandardMaterial color={PALETTE.monitor} roughness={0.7} />
+        </RoundedBox>
+        <mesh position={[0, 0.025, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[0.74, 0.2]} />
+          <meshStandardMaterial color="#3a4049" roughness={0.6} />
+        </mesh>
+      </group>
+      {/* mouse: a small rounded puck beside the keyboard, lying flat along the seat axis */}
+      <mesh position={[0.6, 1.045, 0.16]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <capsuleGeometry args={[0.05, 0.05, 4, 8]} />
+        <meshStandardMaterial color={PALETTE.monitor} roughness={0.6} />
+      </mesh>
     </group>
   );
 }

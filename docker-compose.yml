@@ -27,7 +27,7 @@ services:
       DATABASE_URL: postgresql://campus:campus@postgres:5432/campus?schema=public
       API_PORT: "4000"
       API_HOST: 0.0.0.0
-      CORS_ORIGIN: http://localhost:3100
+      CORS_ORIGIN: http://localhost:3200
     ports:
       - "4000:4000"
     depends_on:
@@ -39,9 +39,9 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: pnpm --filter @campus/web exec next start -p 3100 -H 0.0.0.0
+    command: pnpm --filter @campus/web exec next start -p 3200 -H 0.0.0.0
     ports:
-      - "3100:3100"
+      - "3200:3200"
     depends_on:
       - api
 

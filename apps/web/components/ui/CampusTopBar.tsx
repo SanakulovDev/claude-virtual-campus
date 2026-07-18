@@ -3,13 +3,17 @@
 import { useState } from 'react';
 import { useCampusStore } from '../../stores/campusStore';
 import { selectProjectVisualState } from '../../selectors/project-status.selector';
+import { installProject } from '../../lib/socket';
 
 const CONNECT_COMMAND = 'campus install';
 
-/** Honest "Add project": rooms only come from real hook events, so this just surfaces the
- * terminal connect command. It commands nothing. */
+/** "Add project": connects a real project by installing campus hooks on a local path (the
+ * server touches only .claude/). The room still appears on the first real Claude event, so
+ * this invents nothing. The terminal command stays as a fallback. */
 function AddProjectPopover() {
   const [open, setOpen] = useState(false);
+  const [pathValue, setPathValue] = useState('');
+  const [status, setStatus] = useState<{ kind: 'idle' | 'busy' | 'ok' | 'error'; message?: string }>({ kind: 'idle' });
   const [copied, setCopied] = useState(false);
 
   const copy = () => {
@@ -17,6 +21,15 @@ function AddProjectPopover() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
+  };
+
+  const connect = () => {
+    const target = pathValue.trim();
+    if (!target) return;
+    setStatus({ kind: 'busy' });
+    installProject(target)
+      .then(() => setStatus({ kind: 'ok', message: 'Connected. Run `claude` there and the room appears.' }))
+      .catch((e: Error) => setStatus({ kind: 'error', message: e.message }));
   };
 
   return (
@@ -29,16 +42,38 @@ function AddProjectPopover() {
         + Add project
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-1.5 w-64 rounded-xl border border-slate-200 bg-white p-3 text-slate-700 shadow-lg">
+        <div className="absolute right-0 top-full z-30 mt-1.5 w-72 rounded-xl border border-slate-200 bg-white p-3 text-slate-700 shadow-lg">
           <p className="text-[12px] font-medium text-slate-800">Connect a project</p>
-          <p className="mt-1 text-[11px] text-slate-500">Run this inside any project, in any language:</p>
+          <p className="mt-1 text-[11px] text-slate-500">Paste the project&apos;s full path and connect it from here:</p>
           <div className="mt-2 flex items-center gap-1.5">
-            <code className="flex-1 rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-800">{CONNECT_COMMAND}</code>
-            <button onClick={copy} className="rounded-md border border-slate-300 px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-100">
-              {copied ? 'Copied' : 'Copy'}
+            <input
+              value={pathValue}
+              onChange={(e) => setPathValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && connect()}
+              placeholder="/Users/me/Developer/my-project"
+              className="min-w-0 flex-1 rounded-md border border-slate-300 px-2 py-1 text-[11px] text-slate-800 outline-none focus:border-sky-500"
+              aria-label="Project path"
+            />
+            <button
+              onClick={connect}
+              disabled={status.kind === 'busy' || pathValue.trim() === ''}
+              className="rounded-md bg-sky-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+            >
+              {status.kind === 'busy' ? '…' : 'Connect'}
             </button>
           </div>
-          <p className="mt-2 text-[10px] text-slate-400">The room appears after the first Claude event.</p>
+          {status.message && (
+            <p className={`mt-1.5 text-[10px] ${status.kind === 'error' ? 'text-rose-500' : 'text-emerald-600'}`}>{status.message}</p>
+          )}
+          <div className="mt-2.5 border-t border-slate-100 pt-2">
+            <p className="text-[10px] text-slate-400">Or run it in a terminal, in any language:</p>
+            <div className="mt-1 flex items-center gap-1.5">
+              <code className="flex-1 rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-800">{CONNECT_COMMAND}</code>
+              <button onClick={copy} className="rounded-md border border-slate-300 px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-100">
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -81,7 +116,7 @@ export function CampusTopBar() {
   const conn = CONNECTION[connectionStatus];
 
   return (
-    <header className="panel flex h-14 flex-none items-center justify-between border-b border-slate-200/80 px-3">
+    <header className="panel relative z-40 flex h-14 flex-none items-center justify-between border-b border-slate-200/80 px-3">
       <div className="flex items-center gap-3">
         <button
           onClick={toggleDock}
