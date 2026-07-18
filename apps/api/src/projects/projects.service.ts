@@ -48,8 +48,11 @@ export class ProjectsService {
         existing = await this.prisma.project
           .update({ where: { id: pathTwin.id }, data: { projectKey: resolved.projectKey } })
           .catch((error: unknown) => {
-            // P2002: a concurrent event upgraded another twin first -- fall through to upsert.
-            if ((error as { code?: string }).code === 'P2002') return null;
+            // P2002: a concurrent event upgraded another twin first.
+            // P2025: the twin was deleted mid-flight (remove-room race).
+            // Either way fall through to the upsert below.
+            const code = (error as { code?: string }).code;
+            if (code === 'P2002' || code === 'P2025') return null;
             throw error;
           });
       }
