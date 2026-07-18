@@ -10,6 +10,7 @@ import { selectAgentActivityLine } from '../../selectors/activity-source.selecto
 import { useAmbientActivity } from '../../hooks/useAmbientActivity';
 import { STATE_COLOR, STATE_LABEL } from '../../lib/theme';
 import { renameAgent, removeProject } from '../../lib/socket';
+import { RunPanel } from './RunPanel';
 import type { AgentRow, ProjectRow, TimelineEntry } from '../../lib/types';
 
 function agentRole(agent: AgentRow): string {
@@ -328,6 +329,10 @@ function ProjectInspector({ project, timeline }: { project: ProjectRow; timeline
 
       <Section title="Recent activity">
         <RecentActivity entries={entries} />
+      </Section>
+
+      <Section title="Send task">
+        <RunPanel projectId={project.id} />
       </Section>
 
       <div className="px-4 py-3">
