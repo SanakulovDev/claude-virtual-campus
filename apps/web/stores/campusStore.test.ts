@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { useCampusStore } from './campusStore';
-import type { ProjectRow, TimelineEntry } from '../lib/types';
+import type { AgentRow, ProjectRow, TimelineEntry } from '../lib/types';
 
 function makeProject(overrides: Partial<ProjectRow> = {}): ProjectRow {
   return {
@@ -29,8 +29,26 @@ beforeEach(() => {
     camera: { mode: 'campus', focusedProjectId: null, followedAgentId: null },
     selection: { selectedProjectId: null, selectedAgentId: null },
     ui: { dockCollapsed: false, inspectorOpen: false, timelineExpanded: false, developerDetails: false, ambientLifeEnabled: true, searchQuery: '' },
+    restingAgentIds: {},
   });
 });
+
+function makeAgent(overrides: Partial<AgentRow> = {}): AgentRow {
+  return {
+    id: 'a1',
+    projectId: 'p1',
+    externalAgentId: 'main-claude',
+    agentType: 'main-claude',
+    displayName: 'Claude',
+    status: 'active',
+    activity: 'idle',
+    currentZoneKey: 'assigned-desk',
+    currentTaskId: null,
+    currentSessionId: 's1',
+    lastSeenAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
 
 describe('campusStore', () => {
   it('bootstraps projects and timeline from a snapshot', () => {
@@ -160,5 +178,69 @@ describe('inspector / dock UI behaviour', () => {
     expect(useCampusStore.getState().ui.dockCollapsed).toBe(false);
     useCampusStore.getState().toggleDock();
     expect(useCampusStore.getState().ui.dockCollapsed).toBe(true);
+  });
+
+  it('removes a project and clears selection + camera when it was active', () => {
+    const project = makeProject({ agents: [makeAgent()] });
+    const store = useCampusStore.getState();
+    store.upsertProject(project);
+    store.selectProject('p1');
+    store.focusProjectRoom('p1');
+
+    store.removeProject('p1');
+
+    const s = useCampusStore.getState();
+    expect(s.projects.p1).toBeUndefined();
+    expect(s.selection.selectedProjectId).toBeNull();
+    expect(s.ui.inspectorOpen).toBe(false);
+    expect(s.camera.mode).toBe('campus');
+  });
+
+  it('removeProject leaves an unrelated selection and camera untouched', () => {
+    const store = useCampusStore.getState();
+    store.upsertProject(makeProject({ id: 'p1' }));
+    store.upsertProject(makeProject({ id: 'p2', projectKey: 'path:def' }));
+    store.selectProject('p2');
+    store.focusProjectRoom('p2');
+
+    store.removeProject('p1');
+
+    const s = useCampusStore.getState();
+    expect(s.projects.p2).toBeDefined();
+    expect(s.selection.selectedProjectId).toBe('p2');
+    expect(s.camera.focusedProjectId).toBe('p2');
+  });
+
+  it('rests one bot and wakes it via toggle', () => {
+    const store = useCampusStore.getState();
+    store.upsertProject(makeProject({ agents: [makeAgent()] }));
+    store.toggleAgentRest('a1');
+    expect(useCampusStore.getState().restingAgentIds.a1).toBe(true);
+    store.toggleAgentRest('a1');
+    expect(useCampusStore.getState().restingAgentIds.a1).toBeUndefined();
+  });
+
+  it('restAllIdle rests only idle bots', () => {
+    const store = useCampusStore.getState();
+    store.upsertProject(
+      makeProject({
+        agents: [makeAgent({ id: 'idle1', activity: 'idle' }), makeAgent({ id: 'busy1', activity: 'coding' })],
+      }),
+    );
+    store.restAllIdle();
+    const s = useCampusStore.getState();
+    expect(s.restingAgentIds.idle1).toBe(true);
+    expect(s.restingAgentIds.busy1).toBeUndefined();
+  });
+
+  it('auto-wakes a resting bot the moment real work arrives', () => {
+    const store = useCampusStore.getState();
+    store.upsertProject(makeProject({ agents: [makeAgent({ id: 'a1', activity: 'idle' })] }));
+    store.toggleAgentRest('a1');
+    expect(useCampusStore.getState().restingAgentIds.a1).toBe(true);
+
+    // A real event makes the agent non-idle -> it must wake.
+    store.upsertAgent('a1', 'p1', { activity: 'coding' });
+    expect(useCampusStore.getState().restingAgentIds.a1).toBeUndefined();
   });
 });

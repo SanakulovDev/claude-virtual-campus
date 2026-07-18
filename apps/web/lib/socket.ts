@@ -23,3 +23,8 @@ export async function renameAgent(agentId: string, name: string | null): Promise
     body: JSON.stringify({ name }),
   });
 }
+
+/** Delete a room. The server cascades its data and broadcasts project:removed to every tab. */
+export async function removeProject(projectId: string): Promise<void> {
+  await fetch(apiUrl(`/api/projects/${projectId}`), { method: 'DELETE' });
+}

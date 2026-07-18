@@ -11,6 +11,7 @@ export function useCampusSocket() {
   const setConnectionStatus = useCampusStore((s) => s.setConnectionStatus);
   const bootstrapCampus = useCampusStore((s) => s.bootstrapCampus);
   const upsertProject = useCampusStore((s) => s.upsertProject);
+  const removeProject = useCampusStore((s) => s.removeProject);
   const upsertAgent = useCampusStore((s) => s.upsertAgent);
   const addTimelineEvent = useCampusStore((s) => s.addTimelineEvent);
   const requestApproval = useCampusStore((s) => s.requestApproval);
@@ -43,6 +44,9 @@ export function useCampusSocket() {
       upsertProject(project);
       joinProject(project.id);
     }
+    function onProjectRemoved(payload: { projectId: string }) {
+      if (payload?.projectId) removeProject(payload.projectId);
+    }
     function onAgentChanged(agent: AgentRow) {
       upsertAgent(agent.id, agent.projectId, agent);
     }
@@ -63,6 +67,7 @@ export function useCampusSocket() {
     socket.on('disconnect', onDisconnect);
     socket.on(SOCKET_EVENTS.projectCreated, onProjectUpsert);
     socket.on(SOCKET_EVENTS.projectUpdated, onProjectUpsert);
+    socket.on(SOCKET_EVENTS.projectRemoved, onProjectRemoved);
     socket.on(SOCKET_EVENTS.agentCreated, onAgentChanged);
     socket.on(SOCKET_EVENTS.agentStateChanged, onAgentChanged);
     socket.on(SOCKET_EVENTS.eventReceived, onEventReceived);
@@ -76,6 +81,7 @@ export function useCampusSocket() {
       socket.off('disconnect', onDisconnect);
       socket.off(SOCKET_EVENTS.projectCreated, onProjectUpsert);
       socket.off(SOCKET_EVENTS.projectUpdated, onProjectUpsert);
+      socket.off(SOCKET_EVENTS.projectRemoved, onProjectRemoved);
       socket.off(SOCKET_EVENTS.agentCreated, onAgentChanged);
       socket.off(SOCKET_EVENTS.agentStateChanged, onAgentChanged);
       socket.off(SOCKET_EVENTS.eventReceived, onEventReceived);

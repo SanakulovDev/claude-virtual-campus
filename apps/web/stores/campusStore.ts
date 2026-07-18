@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { AgentRow, ApprovalRow, ProjectRow, TimelineEntry } from '../lib/types';
+import { selectAgentVisualState } from '../selectors/visual-state.selector';
 
 const MAX_TIMELINE_ENTRIES = 200;
 
@@ -31,11 +32,18 @@ interface CampusStoreState {
   camera: CameraState;
   selection: SelectionState;
   ui: UiState;
+  /** Agents the user has manually put to rest. Cosmetic only; cleared the moment real work
+   * arrives (see upsertAgent). Not persisted -- resets on reload, like ambientLifeEnabled. */
+  restingAgentIds: Record<string, true>;
 
   setConnectionStatus: (status: CampusStoreState['connectionStatus']) => void;
   bootstrapCampus: (projects: ProjectRow[], recentEvents: TimelineEntry[]) => void;
   upsertProject: (project: ProjectRow) => void;
+  removeProject: (projectId: string) => void;
   upsertAgent: (agentId: string, projectId: string, patch: Partial<AgentRow>) => void;
+  toggleAgentRest: (agentId: string) => void;
+  restAllIdle: () => void;
+  wakeAllBots: () => void;
   addTimelineEvent: (entry: TimelineEntry) => void;
   requestApproval: (approval: ApprovalRow) => void;
   resolveApproval: (approvalId: string, status: ApprovalRow['status']) => void;
@@ -68,6 +76,7 @@ export const useCampusStore = create<CampusStoreState>((set) => ({
   camera: { mode: 'campus', focusedProjectId: null, followedAgentId: null },
   selection: { selectedProjectId: null, selectedAgentId: null },
   ui: { dockCollapsed: false, inspectorOpen: false, timelineExpanded: false, developerDetails: false, ambientLifeEnabled: true, searchQuery: '' },
+  restingAgentIds: {},
 
   setConnectionStatus: (status) => set({ connectionStatus: status }),
 
@@ -92,6 +101,35 @@ export const useCampusStore = create<CampusStoreState>((set) => ({
       return { projects: { ...state.projects, [project.id]: merged } };
     }),
 
+  removeProject: (projectId) =>
+    set((state) => {
+      const removed = state.projects[projectId];
+      if (!removed) return state;
+      const { [projectId]: _dropped, ...projects } = state.projects;
+
+      // Drop any resting flags for agents that no longer exist.
+      const removedAgentIds = new Set(removed.agents.map((a) => a.id));
+      const restingAgentIds = { ...state.restingAgentIds };
+      removedAgentIds.forEach((id) => delete restingAgentIds[id]);
+
+      // If the camera was in this room (or following one of its agents), return to overview.
+      const cameraInRoom =
+        state.camera.focusedProjectId === projectId ||
+        (state.camera.followedAgentId != null && removedAgentIds.has(state.camera.followedAgentId));
+      const camera = cameraInRoom
+        ? { mode: 'campus' as const, focusedProjectId: null, followedAgentId: null }
+        : state.camera;
+
+      const selectionCleared = state.selection.selectedProjectId === projectId;
+      return {
+        projects,
+        restingAgentIds,
+        camera,
+        selection: selectionCleared ? { selectedProjectId: null, selectedAgentId: null } : state.selection,
+        ui: selectionCleared ? { ...state.ui, inspectorOpen: false } : state.ui,
+      };
+    }),
+
   upsertAgent: (agentId, projectId, patch) =>
     set((state) => {
       const project = state.projects[projectId];
@@ -99,8 +137,39 @@ export const useCampusStore = create<CampusStoreState>((set) => ({
       const agents = project.agents.some((a) => a.id === agentId)
         ? project.agents.map((a) => (a.id === agentId ? { ...a, ...patch } : a))
         : [...project.agents, patch as AgentRow];
-      return { projects: { ...state.projects, [projectId]: { ...project, agents } } };
+
+      // Real work always wins: a resting bot wakes the moment it is no longer idle.
+      let restingAgentIds = state.restingAgentIds;
+      const merged = agents.find((a) => a.id === agentId);
+      if (merged && restingAgentIds[agentId] && selectAgentVisualState(merged) !== 'idle') {
+        const next = { ...restingAgentIds };
+        delete next[agentId];
+        restingAgentIds = next;
+      }
+
+      return { projects: { ...state.projects, [projectId]: { ...project, agents } }, restingAgentIds };
     }),
+
+  toggleAgentRest: (agentId) =>
+    set((state) => {
+      const restingAgentIds = { ...state.restingAgentIds };
+      if (restingAgentIds[agentId]) delete restingAgentIds[agentId];
+      else restingAgentIds[agentId] = true;
+      return { restingAgentIds };
+    }),
+
+  restAllIdle: () =>
+    set((state) => {
+      const restingAgentIds = { ...state.restingAgentIds };
+      for (const project of Object.values(state.projects)) {
+        for (const agent of project.agents) {
+          if (selectAgentVisualState(agent) === 'idle') restingAgentIds[agent.id] = true;
+        }
+      }
+      return { restingAgentIds };
+    }),
+
+  wakeAllBots: () => set({ restingAgentIds: {} }),
 
   addTimelineEvent: (entry) =>
     set((state) => {

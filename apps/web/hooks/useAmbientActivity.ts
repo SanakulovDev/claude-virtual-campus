@@ -30,10 +30,12 @@ export function useAmbientActivity(agent: AgentRow, projectId: string): AmbientA
   const enabled = useCampusStore((s) => s.ui.ambientLifeEnabled);
   const approvals = useCampusStore((s) => s.approvals);
   const project = useCampusStore((s) => s.projects[projectId]);
+  const resting = useCampusStore((s) => Boolean(s.restingAgentIds[agent.id]));
   const reducedMotion = usePrefersReducedMotion();
   const [bucket, setBucket] = useState(0);
 
-  const idle = selectAgentVisualState(agent) === 'idle';
+  // A rested bot sleeps in place -- it never picks up ambient wandering.
+  const idle = selectAgentVisualState(agent) === 'idle' && !resting;
   const roomBlocked =
     Object.values(approvals).some((a) => a.projectId === projectId && a.status === 'PENDING') ||
     (project?.agents ?? []).some((a) => selectAgentVisualState(a) === 'attention');
