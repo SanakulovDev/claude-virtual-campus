@@ -34,31 +34,49 @@ export class ProjectsService {
   ) {}
 
   async upsertFromResolvedProject(resolved: ResolvedProject) {
-    const existing = await this.prisma.project.findUnique({ where: { projectKey: resolved.projectKey } });
+    let existing = await this.prisma.project.findUnique({ where: { projectKey: resolved.projectKey } });
 
-    let project;
-    let isNew = false;
-    if (existing) {
-      project = await this.prisma.project.update({
-        where: { id: existing.id },
-        data: { lastActiveAt: new Date(), name: resolved.name, remoteUrl: resolved.remoteUrl, isGitRepository: resolved.isGitRepository },
+    if (!existing && resolved.projectKey.startsWith('remote:')) {
+      // The repo gained a remote after its room was created under a path: key.
+      // Upgrade that row in place so the project keeps its one room. Rows whose
+      // rootPath predates the anchor fix won't match; `pnpm db:dedupe` covers those.
+      const pathTwin = await this.prisma.project.findFirst({
+        where: { rootPath: resolved.rootPath, projectKey: { startsWith: 'path:' } },
+        orderBy: { createdAt: 'asc' },
       });
-    } else {
-      isNew = true;
-      const count = await this.prisma.project.count();
-      const position = calculateRoomPosition(count);
-      project = await this.prisma.project.create({
-        data: {
-          projectKey: resolved.projectKey,
-          name: resolved.name,
-          rootPath: resolved.rootPath,
-          remoteUrl: resolved.remoteUrl,
-          isGitRepository: resolved.isGitRepository,
-          roomPositionX: position.x,
-          roomPositionZ: position.z,
-        },
-      });
+      if (pathTwin) {
+        existing = await this.prisma.project
+          .update({ where: { id: pathTwin.id }, data: { projectKey: resolved.projectKey } })
+          .catch((error: unknown) => {
+            // P2002: a concurrent event upgraded another twin first -- fall through to upsert.
+            if ((error as { code?: string }).code === 'P2002') return null;
+            throw error;
+          });
+      }
     }
+
+    const isNew = !existing;
+    const position = calculateRoomPosition(isNew ? await this.prisma.project.count() : 0);
+    // Native upsert compiles to INSERT ... ON CONFLICT, so two concurrent first events
+    // both land on the same row instead of the loser 500ing on the unique index.
+    const project = await this.prisma.project.upsert({
+      where: { projectKey: resolved.projectKey },
+      update: {
+        lastActiveAt: new Date(),
+        name: resolved.name,
+        remoteUrl: resolved.remoteUrl,
+        isGitRepository: resolved.isGitRepository,
+      },
+      create: {
+        projectKey: resolved.projectKey,
+        name: resolved.name,
+        rootPath: resolved.rootPath,
+        remoteUrl: resolved.remoteUrl,
+        isGitRepository: resolved.isGitRepository,
+        roomPositionX: position.x,
+        roomPositionZ: position.z,
+      },
+    });
 
     if (resolved.technologyProfile) {
       await this.syncTechnologies(project.id, resolved.technologyProfile);
