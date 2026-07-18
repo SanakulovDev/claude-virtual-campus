@@ -30,12 +30,19 @@ export class GitUnavailableError extends Error {
 /**
  * A timeout kill is transient: the same directory answers differently on the next call, so
  * treating it as "not a repository" would mint a second identity for a project that already
- * has one. Every other failure is a stable answer -- a non-zero exit means git ran and said
- * no, and a missing git binary answers the same way on every call -- so those keep their
- * null result and non-git projects continue to work.
+ * has one. The same holds for any signal-terminated git and for resource-exhaustion errnos
+ * (EAGAIN/EMFILE/ENOMEM/ETIMEDOUT) under load. Every other failure is a stable answer -- a
+ * non-zero exit means git ran and said no, and a missing git binary (ENOENT) answers the
+ * same way on every call -- so those keep their null result and non-git projects keep working.
  */
+const TRANSIENT_ERRNO_CODES = new Set(['EAGAIN', 'EMFILE', 'ENOMEM', 'ETIMEDOUT']);
+
 export function isTransientGitFailure(error: unknown): boolean {
-  return (error as { killed?: boolean } | null)?.killed === true;
+  const failure = error as { killed?: boolean; signal?: string | null; code?: unknown } | null;
+  if (!failure) return false;
+  if (failure.killed === true) return true;
+  if (typeof failure.signal === 'string' && failure.signal.length > 0) return true;
+  return typeof failure.code === 'string' && TRANSIENT_ERRNO_CODES.has(failure.code);
 }
 
 async function git(cwd: string, args: string[], timeoutMs: number): Promise<string | null> {

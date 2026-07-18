@@ -29,6 +29,21 @@ describe('isTransientGitFailure', () => {
     // produces is stable. Treating it as transient would break non-git projects.
     expect(isTransientGitFailure({ code: 'ENOENT', errno: -2 })).toBe(false);
   });
+
+  it('classifies resource-exhaustion errnos as transient', () => {
+    expect(isTransientGitFailure({ code: 'EAGAIN', errno: -35 })).toBe(true);
+    expect(isTransientGitFailure({ code: 'EMFILE', errno: -24 })).toBe(true);
+    expect(isTransientGitFailure({ code: 'ENOMEM', errno: -12 })).toBe(true);
+    expect(isTransientGitFailure({ code: 'ETIMEDOUT', errno: -60 })).toBe(true);
+  });
+
+  it('classifies an externally-killed git as transient', () => {
+    expect(isTransientGitFailure({ killed: false, signal: 'SIGKILL', code: null })).toBe(true);
+  });
+
+  it('still classifies a clean non-zero exit as a real answer', () => {
+    expect(isTransientGitFailure({ code: 128, signal: null, stderr: 'fatal: not a git repository' })).toBe(false);
+  });
 });
 
 describe('resolveGitInfo', () => {
