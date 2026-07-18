@@ -1,12 +1,14 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
-import { profileForAgentType, type AgentAccessory, type AmbientActivity } from '@campus/contracts';
+import type { AmbientActivity } from '@campus/contracts';
 import { agentBodyColor, PALETTE, STATE_COLOR } from '../../lib/theme';
 import type { SimplifiedAgentVisualState } from '../../selectors/visual-state.selector';
+import { routeBetween } from '../../selectors/routing';
+import { laneFor } from '../../selectors/office-layout';
 import { AgentLabel } from './AgentLabel';
 import type { AgentRow } from '../../lib/types';
 
@@ -14,8 +16,8 @@ interface AgentAvatarProps {
   agent: AgentRow;
   visualState: SimplifiedAgentVisualState;
   ambient: AmbientActivity | null;
-  /** User put this bot to sleep (cosmetic). Overrides ambient; dims optics and slumps. */
   resting?: boolean;
+  /** World-space destination. The avatar routes itself there via the hallway. */
   target: [number, number, number];
   restFacingY: number;
   selected: boolean;
@@ -29,161 +31,130 @@ function hashString(s: string): number {
   return h;
 }
 
-/** Two-finger claw. Sits inside an arm mesh so it swings with the existing arm rig. */
-function Gripper() {
-  return (
-    <group position={[0, -0.26, 0]}>
-      <mesh>
-        <cylinderGeometry args={[0.055, 0.055, 0.07, 8]} />
-        <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.5} />
+/** Hair variants keep teammates individual without a model library. */
+function Hair({ variant, color }: { variant: number; color: string }) {
+  if (variant === 0) {
+    return (
+      <mesh position={[0, 1.86, 0]} castShadow>
+        <sphereGeometry args={[0.21, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color={color} roughness={1} />
       </mesh>
-      {[-0.045, 0.045].map((x) => (
-        <mesh key={x} position={[x, -0.08, 0]} rotation={[0, 0, x > 0 ? -0.25 : 0.25]}>
-          <boxGeometry args={[0.03, 0.11, 0.06]} />
-          <meshStandardMaterial color={PALETTE.robotTrim} roughness={0.5} metalness={0.55} />
+    );
+  }
+  if (variant === 1) {
+    return (
+      <group>
+        <mesh position={[0, 1.87, -0.02]} castShadow>
+          <sphereGeometry args={[0.21, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <meshStandardMaterial color={color} roughness={1} />
         </mesh>
-      ))}
+        <mesh position={[0.12, 1.78, -0.1]} castShadow>
+          <boxGeometry args={[0.08, 0.16, 0.16]} />
+          <meshStandardMaterial color={color} roughness={1} />
+        </mesh>
+      </group>
+    );
+  }
+  return (
+    <group>
+      <mesh position={[0, 1.86, 0]} castShadow>
+        <sphereGeometry args={[0.21, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color={color} roughness={1} />
+      </mesh>
+      <mesh position={[0, 1.95, -0.16]} castShadow>
+        <sphereGeometry args={[0.09, 10, 10]} />
+        <meshStandardMaterial color={color} roughness={1} />
+      </mesh>
     </group>
   );
 }
 
-/** Small role accessory rendered near the head/chest. One reusable set, not a new model. */
-function Accessory({ kind, accent }: { kind: AgentAccessory; accent: string }) {
-  switch (kind) {
-    case 'headphones':
-      return (
-        <group>
-          <mesh position={[0, 1.78, 0]} rotation={[0, 0, 0]}>
-            <torusGeometry args={[0.28, 0.035, 8, 16, Math.PI]} />
-            <meshStandardMaterial color="#2b2f36" />
-          </mesh>
-          <mesh position={[-0.27, 1.62, 0]}>
-            <sphereGeometry args={[0.08, 10, 10]} />
-            <meshStandardMaterial color="#2b2f36" />
-          </mesh>
-          <mesh position={[0.27, 1.62, 0]}>
-            <sphereGeometry args={[0.08, 10, 10]} />
-            <meshStandardMaterial color="#2b2f36" />
-          </mesh>
-        </group>
-      );
-    case 'glasses':
-      return (
-        <group position={[0, 1.6, 0.22]}>
-          <mesh position={[-0.1, 0, 0]}>
-            <torusGeometry args={[0.07, 0.014, 6, 14]} />
-            <meshStandardMaterial color="#20242b" />
-          </mesh>
-          <mesh position={[0.1, 0, 0]}>
-            <torusGeometry args={[0.07, 0.014, 6, 14]} />
-            <meshStandardMaterial color="#20242b" />
-          </mesh>
-        </group>
-      );
-    case 'notebook':
-      return (
-        <mesh position={[0.1, 1.06, 0.3]} rotation={[0.5, 0, 0]}>
-          <boxGeometry args={[0.26, 0.34, 0.04]} />
-          <meshStandardMaterial color="#c9762e" />
-        </mesh>
-      );
-    case 'clipboard':
-      return (
-        <group position={[0.1, 1.06, 0.32]} rotation={[0.5, 0, 0]}>
-          <mesh>
-            <boxGeometry args={[0.28, 0.36, 0.03]} />
-            <meshStandardMaterial color="#e7e2d6" />
-          </mesh>
-          <mesh position={[0, 0.16, 0.03]}>
-            <boxGeometry args={[0.12, 0.06, 0.03]} />
-            <meshStandardMaterial color="#8a8f98" />
-          </mesh>
-        </group>
-      );
-    case 'shield':
-      return (
-        <mesh position={[0.24, 1.12, 0.28]}>
-          <cylinderGeometry args={[0.11, 0.09, 0.04, 6]} />
-          <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={0.25} />
-        </mesh>
-      );
-    case 'tablet':
-      return (
-        <mesh position={[0.1, 1.04, 0.32]} rotation={[0.6, 0, 0]}>
-          <boxGeometry args={[0.3, 0.22, 0.02]} />
-          <meshStandardMaterial color="#1d2733" emissive="#2b6cb0" emissiveIntensity={0.4} />
-        </mesh>
-      );
-    default:
-      return null;
-  }
-}
-
 /**
- * Rounded low-poly office character. Position/facing come from the agent's committed studio
- * location; work pose comes from its simplified visual state. When the agent is genuinely
- * idle and ambient life is on it does a soft sway -- clearly labelled ambient, never fake work.
+ * Low-poly office person. Shirt colour = role tint; skin/hair are stable per agent id.
+ * Position comes from walking a hallway waypoint route to the current destination; pose
+ * comes from the simplified visual state. Ambient life is labelled and cosmetic only.
  */
 export function AgentAvatar({ agent, visualState, ambient, resting = false, target, restFacingY, selected, onSelect, onFollow }: AgentAvatarProps) {
   const root = useRef<THREE.Group>(null);
   const torso = useRef<THREE.Group>(null);
   const leftArm = useRef<THREE.Mesh>(null);
   const rightArm = useRef<THREE.Mesh>(null);
+  const leftLeg = useRef<THREE.Group>(null);
+  const rightLeg = useRef<THREE.Group>(null);
   const beacon = useRef<THREE.Mesh>(null);
 
-  const targetVec = useMemo(() => new THREE.Vector3(...target), [target]);
-  const bodyColor = agentBodyColor(agent.agentType, agent.externalAgentId);
+  const pathRef = useRef<THREE.Vector3[]>([]);
+  const legRef = useRef(0);
+
+  const shirt = agentBodyColor(agent.agentType, agent.externalAgentId);
+  const seedHash = hashString(agent.id);
+  const skin = PALETTE.skinTones[seedHash % PALETTE.skinTones.length]!;
+  const hairColor = PALETTE.hairColors[(seedHash >> 3) % PALETTE.hairColors.length]!;
+  const hairVariant = seedHash % 3;
   const isMain = agent.externalAgentId === 'main-claude' || agent.agentType === 'main-claude';
-  const accessory = profileForAgentType(agent.agentType).accessory;
-  // Stable per-agent chassis variant (was hair): teammates still read as individuals.
-  const chassisVariant = hashString(agent.id) % 3;
+  const lane = useMemo(() => laneFor(agent.id), [agent.id]);
+
+  // New destination -> new route from wherever we are right now.
+  useEffect(() => {
+    const g = root.current;
+    const from: [number, number, number] = g
+      ? [g.position.x, 0, g.position.z]
+      : [target[0], 0, target[2]];
+    pathRef.current = routeBetween(from, target, lane).map((p) => new THREE.Vector3(p[0], 0, p[2]));
+    legRef.current = 0;
+  }, [target[0], target[2], lane]);
 
   useFrame(({ clock }, delta) => {
     const g = root.current;
     if (!g) return;
     const t = clock.elapsedTime;
 
-    const before = g.position.distanceTo(targetVec);
-    g.position.lerp(targetVec, Math.min(1, delta * 3.2));
-    const moving = before > 0.08;
-
-    if (moving) {
-      const dir = targetVec.clone().sub(g.position);
-      if (dir.lengthSq() > 0.0001) {
-        const angle = Math.atan2(dir.x, dir.z);
-        g.rotation.y = dampAngle(g.rotation.y, angle, delta * 6);
+    // walk the waypoint path
+    let moving = false;
+    const path = pathRef.current;
+    if (legRef.current < path.length) {
+      const waypoint = path[legRef.current]!;
+      const dist = g.position.distanceTo(waypoint);
+      if (dist < 0.15 && legRef.current < path.length - 1) legRef.current += 1;
+      if (dist > 0.08) {
+        moving = true;
+        g.position.lerp(waypoint, Math.min(1, delta * 3.2));
+        const dir = waypoint.clone().sub(g.position);
+        if (dir.lengthSq() > 0.0001) {
+          g.rotation.y = dampAngle(g.rotation.y, Math.atan2(dir.x, dir.z), delta * 6);
+        }
       }
-    } else if (resting) {
-      g.rotation.y = dampAngle(g.rotation.y, restFacingY, delta * 3);
-    } else if (ambient) {
-      // gentle idle-life sway so ambient agents read as alive, not frozen
-      g.rotation.y = dampAngle(g.rotation.y, restFacingY + Math.sin(t * 0.8) * 0.35, delta * 3);
-    } else {
-      g.rotation.y = dampAngle(g.rotation.y, restFacingY, delta * 5);
+    }
+
+    if (!moving) {
+      if (resting) g.rotation.y = dampAngle(g.rotation.y, restFacingY, delta * 3);
+      else if (ambient) g.rotation.y = dampAngle(g.rotation.y, restFacingY + Math.sin(t * 0.8) * 0.35, delta * 3);
+      else g.rotation.y = dampAngle(g.rotation.y, restFacingY, delta * 5);
     }
 
     const seated = !moving && !resting && !ambient && (visualState === 'working' || visualState === 'checking');
-    // resting: slumped, with a slow "breathing" bob so a powered-down bot still reads as alive.
     const targetY = resting
       ? -0.42 + Math.sin(t * 0.9) * 0.03
-      : seated
-        ? -0.28
-        : ambient && !moving
-          ? Math.sin(t * 1.6) * 0.05
-          : 0;
+      : seated ? -0.28
+      : ambient && !moving ? Math.sin(t * 1.6) * 0.05
+      : 0;
     if (torso.current) {
       torso.current.position.y = THREE.MathUtils.lerp(torso.current.position.y, targetY, Math.min(1, delta * 6));
-      if (visualState === 'completed' && !resting) {
-        torso.current.position.y = Math.abs(Math.sin(t * 6)) * 0.35;
-      }
+      if (visualState === 'completed' && !resting) torso.current.position.y = Math.abs(Math.sin(t * 6)) * 0.35;
+    }
+
+    // legs swing only while walking
+    if (leftLeg.current && rightLeg.current) {
+      const swing = moving ? Math.sin(t * 9) * 0.55 : 0;
+      leftLeg.current.rotation.x = THREE.MathUtils.lerp(leftLeg.current.rotation.x, swing, Math.min(1, delta * 8));
+      rightLeg.current.rotation.x = THREE.MathUtils.lerp(rightLeg.current.rotation.x, -swing, Math.min(1, delta * 8));
     }
 
     if (leftArm.current && rightArm.current) {
       if (moving) {
-        leftArm.current.rotation.x = Math.sin(t * 8) * 0.5;
-        rightArm.current.rotation.x = -Math.sin(t * 8) * 0.5;
+        leftArm.current.rotation.x = -Math.sin(t * 9) * 0.45;
+        rightArm.current.rotation.x = Math.sin(t * 9) * 0.45;
       } else if (resting) {
-        // arms hang slack at the sides
         leftArm.current.rotation.x = THREE.MathUtils.lerp(leftArm.current.rotation.x, 0.15, Math.min(1, delta * 4));
         rightArm.current.rotation.x = THREE.MathUtils.lerp(rightArm.current.rotation.x, 0.15, Math.min(1, delta * 4));
       } else if (ambient) {
@@ -214,141 +185,79 @@ export function AgentAvatar({ agent, visualState, ambient, resting = false, targ
   });
 
   const statusColor = STATE_COLOR[visualState];
-  // Powered-down bot: optics dim to a faint glow.
   const glow = resting ? 0.12 : 1;
 
   return (
     <group
       ref={root}
       position={target}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect();
-      }}
-      onDoubleClick={(e) => {
-        e.stopPropagation();
-        onFollow();
-      }}
+      onClick={(e) => { e.stopPropagation(); onSelect(); }}
+      onDoubleClick={(e) => { e.stopPropagation(); onFollow(); }}
     >
       <group ref={torso}>
-        {/* piston legs: dark servo shaft + knee joint + boxy foot */}
-        {[-0.16, 0.16].map((x) => (
-          <group key={x} position={[x, 0, 0]}>
-            <mesh position={[0, 0.58, 0]} castShadow>
-              <cylinderGeometry args={[0.075, 0.075, 0.34, 10]} />
-              <meshStandardMaterial color={PALETTE.robotServo} roughness={0.5} metalness={0.6} />
+        {/* legs: hip-pivot groups so they swing while walking */}
+        {[-0.13, 0.13].map((x, i) => (
+          <group key={x} ref={i === 0 ? leftLeg : rightLeg} position={[x, 0.72, 0]}>
+            <mesh position={[0, -0.28, 0]} castShadow>
+              <capsuleGeometry args={[0.09, 0.4, 4, 8]} />
+              <meshStandardMaterial color={PALETTE.pants} roughness={0.9} />
             </mesh>
-            <mesh position={[0, 0.38, 0]} castShadow>
-              <sphereGeometry args={[0.11, 12, 12]} />
-              <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.5} />
-            </mesh>
-            <mesh position={[0, 0.2, 0]} castShadow>
-              <cylinderGeometry args={[0.085, 0.1, 0.28, 10]} />
-              <meshStandardMaterial color={bodyColor} roughness={0.7} metalness={0.2} />
-            </mesh>
-            <mesh position={[0, 0.05, 0.05]} castShadow>
-              <boxGeometry args={[0.22, 0.1, 0.32]} />
-              <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.4} />
+            <mesh position={[0, -0.56, 0.06]} castShadow>
+              <boxGeometry args={[0.16, 0.1, 0.3]} />
+              <meshStandardMaterial color="#2f2a26" roughness={0.9} />
             </mesh>
           </group>
         ))}
 
-        {/* chassis: painted plating over a dark waist joint */}
-        <mesh position={[0, 0.78, 0]} castShadow>
-          <cylinderGeometry args={[0.16, 0.16, 0.12, 10]} />
-          <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.5} />
+        {/* shirt torso (role tint) */}
+        <RoundedBox args={[0.52, 0.62, 0.32]} radius={0.1} smoothness={4} position={[0, 1.12, 0]} castShadow>
+          <meshStandardMaterial color={shirt} roughness={0.9} />
+        </RoundedBox>
+
+        {/* arms: shirt sleeve + skin hand */}
+        <mesh ref={leftArm} position={[-0.33, 1.28, 0]} castShadow>
+          <capsuleGeometry args={[0.06, 0.34, 4, 8]} />
+          <meshStandardMaterial color={shirt} roughness={0.9} />
+          <mesh position={[0, -0.26, 0]}>
+            <sphereGeometry args={[0.07, 10, 10]} />
+            <meshStandardMaterial color={skin} roughness={0.8} />
+          </mesh>
         </mesh>
-        <RoundedBox args={[0.62, 0.66, 0.42]} radius={0.09} smoothness={4} position={[0, 1.16, 0]} castShadow>
-          <meshStandardMaterial color={bodyColor} roughness={0.55} metalness={0.25} />
-        </RoundedBox>
-        {/* chest plate -- variant per robot so teammates read as individuals */}
-        <RoundedBox
-          args={chassisVariant === 0 ? [0.34, 0.2, 0.04] : chassisVariant === 1 ? [0.22, 0.3, 0.04] : [0.3, 0.3, 0.04]}
-          radius={0.02}
-          smoothness={3}
-          position={[0, 1.16, 0.22]}
-        >
-          <meshStandardMaterial color={PALETTE.robotTrim} roughness={0.5} metalness={0.4} />
-        </RoundedBox>
-        {/* status collar */}
-        <mesh position={[0, 1.46, 0]}>
-          <torusGeometry args={[0.2, 0.04, 8, 20]} />
-          <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.45 * glow} />
+        <mesh ref={rightArm} position={[0.33, 1.28, 0]} castShadow>
+          <capsuleGeometry args={[0.06, 0.34, 4, 8]} />
+          <meshStandardMaterial color={shirt} roughness={0.9} />
+          <mesh position={[0, -0.26, 0]}>
+            <sphereGeometry args={[0.07, 10, 10]} />
+            <meshStandardMaterial color={skin} roughness={0.8} />
+          </mesh>
         </mesh>
 
-        {/* segmented arms: shoulder joint + plated upper arm + gripper claw */}
-        <mesh ref={leftArm} position={[-0.36, 1.3, 0]} castShadow>
-          <capsuleGeometry args={[0.075, 0.36, 4, 8]} />
-          <meshStandardMaterial color={bodyColor} roughness={0.55} metalness={0.25} />
-          <mesh position={[0, 0.2, 0]}>
-            <sphereGeometry args={[0.1, 12, 12]} />
-            <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.5} />
-          </mesh>
-          <Gripper />
+        {/* head + hair */}
+        <mesh position={[0, 1.68, 0]} castShadow>
+          <sphereGeometry args={[0.2, 14, 14]} />
+          <meshStandardMaterial color={skin} roughness={0.8} />
         </mesh>
-        <mesh ref={rightArm} position={[0.36, 1.3, 0]} castShadow>
-          <capsuleGeometry args={[0.075, 0.36, 4, 8]} />
-          <meshStandardMaterial color={bodyColor} roughness={0.55} metalness={0.25} />
-          <mesh position={[0, 0.2, 0]}>
-            <sphereGeometry args={[0.1, 12, 12]} />
-            <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.5} />
-          </mesh>
-          <Gripper />
+        <Hair variant={hairVariant} color={hairColor} />
+
+        {/* status pin on the chest -- carries the live state colour */}
+        <mesh position={[0.16, 1.32, 0.17]}>
+          <sphereGeometry args={[0.045, 10, 10]} />
+          <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.9 * glow} toneMapped={false} />
         </mesh>
 
-        {/* neck + head with a single lit optic instead of eyes */}
-        <mesh position={[0, 1.56, 0]} castShadow>
-          <cylinderGeometry args={[0.07, 0.07, 0.1, 8]} />
-          <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.5} />
-        </mesh>
-        <RoundedBox args={[0.44, 0.36, 0.38]} radius={0.1} smoothness={4} position={[0, 1.8, 0]} castShadow>
-          <meshStandardMaterial color={bodyColor} roughness={0.55} metalness={0.25} />
-        </RoundedBox>
-        {/* visor recess + optic: the optic carries the agent's live state colour */}
-        <RoundedBox args={[0.34, 0.16, 0.04]} radius={0.02} smoothness={3} position={[0, 1.82, 0.19]}>
-          <meshStandardMaterial color={PALETTE.robotVisor} roughness={0.35} metalness={0.5} />
-        </RoundedBox>
-        <mesh position={[0, 1.82, 0.21]} rotation={[0, 0, Math.PI / 2]}>
-          <capsuleGeometry args={[0.045, 0.12, 4, 8]} />
-          <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={1.1 * glow} toneMapped={false} />
-        </mesh>
-        {/* ear servos */}
-        {[-0.24, 0.24].map((x) => (
-          <mesh key={x} position={[x, 1.8, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[0.06, 0.06, 0.06, 10]} />
-            <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.5} />
-          </mesh>
-        ))}
-        {/* antenna -- variant per robot, tip lit with the status colour */}
-        {chassisVariant !== 2 && (
-          <group position={[chassisVariant === 0 ? 0 : 0.13, 1.98, -0.02]}>
-            <mesh position={[0, 0.09, 0]} castShadow>
-              <cylinderGeometry args={[0.012, 0.012, 0.18, 6]} />
-              <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.6} metalness={0.6} />
-            </mesh>
-            <mesh position={[0, 0.2, 0]}>
-              <sphereGeometry args={[0.045, 10, 10]} />
-              <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.9 * glow} toneMapped={false} />
-            </mesh>
-          </group>
-        )}
-        {/* main-claude keeps the team-lead crown */}
         {isMain && (
-          <mesh position={[0, 2.04, 0]}>
-            <torusGeometry args={[0.16, 0.03, 8, 16]} />
+          <mesh position={[0, 2.0, 0]}>
+            <torusGeometry args={[0.14, 0.025, 8, 16]} />
             <meshStandardMaterial color="#e8b23c" emissive="#e8b23c" emissiveIntensity={0.4} />
           </mesh>
         )}
-        <Accessory kind={accessory} accent={statusColor} />
       </group>
 
-      {/* attention beacon */}
       <mesh ref={beacon} position={[0, 2.05, 0]} visible={false}>
         <octahedronGeometry args={[0.16, 0]} />
         <meshStandardMaterial color={STATE_COLOR.attention} emissive={STATE_COLOR.attention} emissiveIntensity={1} />
       </mesh>
 
-      {/* selection ring */}
       {selected && (
         <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.42, 0.54, 28]} />
