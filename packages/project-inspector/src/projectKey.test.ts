@@ -18,6 +18,12 @@ describe('normalizeRemoteUrl', () => {
     );
   });
 
+  it('strips userinfo even when the password contains an unencoded @', () => {
+    expect(normalizeRemoteUrl('https://user:p@ssword@github.com/acme/widgets')).toBe(
+      normalizeRemoteUrl('https://github.com/acme/widgets'),
+    );
+  });
+
   it('strips default ports so ssh:// and scp forms match', () => {
     expect(normalizeRemoteUrl('ssh://git@github.com:22/acme/widgets.git')).toBe(
       normalizeRemoteUrl('git@github.com:acme/widgets.git'),

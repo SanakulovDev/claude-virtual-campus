@@ -9,7 +9,7 @@ export function normalizeRemoteUrl(remoteUrl: string): string {
   // scp form (git@host:org/repo) -> ssh URL so one pipeline handles everything below
   value = value.replace(/^git@([^:]+):/, 'ssh://$1/');
   // userinfo (user:token@) never identifies the repo
-  value = value.replace(/^(\w+):\/\/[^/@]*@/, '$1://');
+  value = value.replace(/^(\w+):\/\/[^/]*@/, '$1://');
   // default ports
   value = value.replace(/^ssh:\/\/([^/:]+):22\//, 'ssh://$1/');
   value = value.replace(/^https:\/\/([^/:]+):443\//, 'https://$1/');
