@@ -34,6 +34,25 @@ always route through the approval flow:
 If the campus API is down entirely, `request-approval.sh` fails open so Claude Code's own
 default permission handling takes over.
 
+## Campus runs (send task to agent)
+
+`POST /api/projects/:id/runs` starts a headless `claude -p "<prompt>"` in the project's
+directory. Safeguards:
+
+- The prompt travels as data end to end (JSON -> zod -> argv element); it is never
+  interpolated into a shell string.
+- The endpoint refuses (403) whenever the API is bound to a non-loopback host. The guard
+  shares the exact host resolution `main.ts` uses (`src/config/api-host.ts`), so it cannot
+  drift from the real bind. In containers (`API_HOST=0.0.0.0`) runs are always disabled.
+- One active run per project, at most 3 campus-wide; 30-minute hard timeout.
+- The spawned run's tool use is gated by Claude's own permission system plus the campus
+  approval flow -- destructive commands land in the approval drawer and deny by default.
+- Caveat: if the API restarts while a run is active, the child process is orphaned; the
+  run row is marked FAILED ("API restarted") and Stop on such a row only updates the row.
+- This does not weaken the "never execute received commands" rule: nothing from hook
+  payloads is executed; only a prompt typed by the local user in the campus UI reaches
+  the `claude` binary, as an argument.
+
 ## What ambient idle life is not
 
 The [ambient idle life](../README.md#11-idle-campus-life) shown for idle agents is a
