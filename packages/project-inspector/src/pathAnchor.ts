@@ -18,7 +18,12 @@ export async function resolvePathAnchor(cwd: string): Promise<string> {
   } catch {
     real = path.resolve(cwd);
   }
-  const home = homedir();
+  let home: string;
+  try {
+    home = await realpath(homedir());
+  } catch {
+    home = homedir();
+  }
   let dir = real;
   while (dir !== home && path.dirname(dir) !== dir) {
     if (existsSync(path.join(dir, '.claude'))) return dir;

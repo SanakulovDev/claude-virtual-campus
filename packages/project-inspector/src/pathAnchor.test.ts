@@ -1,11 +1,18 @@
-import { describe, expect, it, afterEach } from 'vitest';
+import { describe, expect, it, afterEach, vi } from 'vitest';
 import { mkdtemp, mkdir, rm, symlink, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { resolvePathAnchor } from './pathAnchor';
 
+var mockedHome: string | null = null;
+vi.mock('node:os', async (importOriginal) => {
+  const os = await importOriginal<typeof import('node:os')>();
+  return { ...os, homedir: () => mockedHome ?? os.homedir() };
+});
+
 const dirsToClean: string[] = [];
 afterEach(async () => {
+  mockedHome = null;
   await Promise.all(dirsToClean.splice(0).map((d) => rm(d, { recursive: true, force: true })));
 });
 
@@ -37,5 +44,15 @@ describe('resolvePathAnchor', () => {
   it('falls back to realpath(cwd) when no .claude ancestor exists', async () => {
     const dir = await makeTmpDir();
     expect(await resolvePathAnchor(dir)).toBe(await realpath(dir));
+  });
+
+  it('never anchors at or above the home directory', async () => {
+    const fakeHome = await makeTmpDir();
+    await mkdir(path.join(fakeHome, '.claude'), { recursive: true });   // ~/.claude is config, not a project
+    await mkdir(path.join(fakeHome, 'sub'), { recursive: true });
+    mockedHome = fakeHome;
+
+    const anchor = await resolvePathAnchor(path.join(fakeHome, 'sub'));
+    expect(anchor).toBe(await realpath(path.join(fakeHome, 'sub')));
   });
 });
