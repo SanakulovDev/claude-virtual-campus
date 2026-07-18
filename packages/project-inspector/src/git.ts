@@ -55,6 +55,19 @@ async function git(cwd: string, args: string[], timeoutMs: number): Promise<stri
   }
 }
 
+/** origin first; otherwise the first remote git lists. Zero remotes -> null (path: identity). */
+async function resolveRemoteUrl(cwd: string, timeoutMs: number): Promise<string | null> {
+  const originUrl = await git(cwd, ['remote', 'get-url', 'origin'], timeoutMs);
+  if (originUrl) return originUrl;
+  const remotes = await git(cwd, ['remote'], timeoutMs);
+  const first = remotes
+    ?.split('\n')
+    .map((name) => name.trim())
+    .filter(Boolean)[0];
+  if (!first) return null;
+  return git(cwd, ['remote', 'get-url', first], timeoutMs);
+}
+
 /**
  * Resolves git identity for a working directory using argv-based execFile calls only
  * (never shell interpolation). Returns isGitRepository: false for any directory that git
@@ -77,7 +90,7 @@ export async function resolveGitInfo(cwd: string, options: ResolveGitOptions = {
   }
 
   const [remoteUrl, branch, gitDir, commonGitDir] = await Promise.all([
-    git(cwd, ['remote', 'get-url', 'origin'], timeoutMs),
+    resolveRemoteUrl(cwd, timeoutMs),
     git(cwd, ['rev-parse', '--abbrev-ref', 'HEAD'], timeoutMs),
     git(cwd, ['rev-parse', '--git-dir'], timeoutMs),
     git(cwd, ['rev-parse', '--git-common-dir'], timeoutMs),

@@ -2,7 +2,11 @@ import { describe, expect, it, afterEach } from 'vitest';
 import { mkdtemp, rm, writeFile, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { resolveGitInfo, isTransientGitFailure, GitUnavailableError } from './git';
+
+const execFileAsync = promisify(execFile);
 
 const dirsToClean: string[] = [];
 afterEach(async () => {
@@ -71,5 +75,24 @@ describe('resolveGitInfo', () => {
     } finally {
       process.env.PATH = realPath;
     }
+  });
+
+  it('falls back to the first remote when origin is absent', async () => {
+    const dir = await makeTmpDir('campus-git-upstream-');
+    await execFileAsync('git', ['init', '-q', '-b', 'main'], { cwd: dir });
+    await execFileAsync('git', ['remote', 'add', 'upstream', 'https://github.com/acme/widgets.git'], { cwd: dir });
+
+    const info = await resolveGitInfo(dir);
+    expect(info.remoteUrl).toBe('https://github.com/acme/widgets.git');
+  });
+
+  it('prefers origin when several remotes exist', async () => {
+    const dir = await makeTmpDir('campus-git-multi-');
+    await execFileAsync('git', ['init', '-q', '-b', 'main'], { cwd: dir });
+    await execFileAsync('git', ['remote', 'add', 'upstream', 'https://github.com/acme/fork.git'], { cwd: dir });
+    await execFileAsync('git', ['remote', 'add', 'origin', 'https://github.com/acme/widgets.git'], { cwd: dir });
+
+    const info = await resolveGitInfo(dir);
+    expect(info.remoteUrl).toBe('https://github.com/acme/widgets.git');
   });
 });
