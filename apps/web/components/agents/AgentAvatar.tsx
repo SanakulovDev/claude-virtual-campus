@@ -85,6 +85,9 @@ export function AgentAvatar({ agent, visualState, ambient, resting = false, targ
 
   const pathRef = useRef<THREE.Vector3[]>([]);
   const legRef = useRef(0);
+  // Mount position only -- after mount, useFrame owns position; a reactive
+  // position prop would snap the group to each new destination and skip the walk.
+  const initialPosition = useRef<[number, number, number]>(target);
 
   const shirt = agentBodyColor(agent.agentType, agent.externalAgentId);
   const seedHash = hashString(agent.id);
@@ -190,7 +193,7 @@ export function AgentAvatar({ agent, visualState, ambient, resting = false, targ
   return (
     <group
       ref={root}
-      position={target}
+      position={initialPosition.current}
       onClick={(e) => { e.stopPropagation(); onSelect(); }}
       onDoubleClick={(e) => { e.stopPropagation(); onFollow(); }}
     >
