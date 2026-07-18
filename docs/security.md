@@ -46,9 +46,11 @@ directory. Safeguards:
   drift from the real bind. In containers (`API_HOST=0.0.0.0`) runs are always disabled.
 - One active run per project, at most 3 campus-wide; 30-minute hard timeout.
 - The spawned run's tool use is gated by Claude's own permission system plus the campus
-  approval flow -- destructive commands land in the approval drawer and deny by default.
-- Caveat: if the API restarts while a run is active, the child process is orphaned; the
-  run row is marked FAILED ("API restarted") and Stop on such a row only updates the row.
+  approval flow — destructive commands land in the approval drawer and deny by default.
+- Caveat: if the API restarts while a run is active, the child process is orphaned; boot
+  cleanup marks the row FAILED ("API restarted") before the port opens, and the orphan
+  simply exits on its own (bounded by the 30-minute timeout). Stop's no-handle path is a
+  defensive fallback for a handle ever going missing mid-run, not a restart recovery.
 - This does not weaken the "never execute received commands" rule: nothing from hook
   payloads is executed; only a prompt typed by the local user in the campus UI reaches
   the `claude` binary, as an argument.
