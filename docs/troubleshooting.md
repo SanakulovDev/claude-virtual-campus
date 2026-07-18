@@ -71,3 +71,7 @@ transient git failures. Rooms created before the fix are merged manually:
 pnpm db:dedupe --dry-run   # list duplicate groups
 pnpm db:dedupe             # merge history into one room per project directory
 ```
+
+Leftover rooms whose rootPath is a subdirectory (pre-fix non-git rooms launched from inside
+the project) don't share a rootPath with the real room, so `db:dedupe` cannot merge them --
+remove those rooms from the campus UI; they won't come back.

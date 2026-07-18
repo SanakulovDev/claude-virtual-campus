@@ -38,8 +38,9 @@ export class ProjectsService {
 
     if (!existing && resolved.projectKey.startsWith('remote:')) {
       // The repo gained a remote after its room was created under a path: key.
-      // Upgrade that row in place so the project keeps its one room. Rows whose
-      // rootPath predates the anchor fix won't match; `pnpm db:dedupe` covers those.
+      // Upgrade that row in place so the project keeps its one room. `pnpm db:dedupe`
+      // covers leftover rows that share this rootPath; subdir-cwd rows (a different
+      // rootPath) don't match here or in dedupe and must be removed via the campus UI.
       const pathTwin = await this.prisma.project.findFirst({
         where: { rootPath: resolved.rootPath, projectKey: { startsWith: 'path:' } },
         orderBy: { createdAt: 'asc' },
