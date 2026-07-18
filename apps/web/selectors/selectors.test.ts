@@ -7,8 +7,8 @@ import {
 } from './visual-state.selector';
 import { selectProjectVisualState } from './project-status.selector';
 import { summarizeAgentAction, summarizeTimelineEntry } from './activity-summary.selector';
-import { calculateStudioPlacement, calculateIslandRadius, ISLAND_MIN_RADIUS } from './campus-layout';
-import { deskPosition, assignDesks, STUDIO_HALF_WIDTH } from './studio-layout';
+import { assignDesks } from './desk-assignment';
+import { deskLocal } from './office-layout';
 import { shouldCommitMove, MOVEMENT_DEBOUNCE_MS } from './movement';
 import type { AgentRow, TimelineEntry } from '../lib/types';
 
@@ -28,34 +28,6 @@ function agent(activity: AgentActivity, extra: Partial<AgentRow> = {}): AgentRow
     ...extra,
   };
 }
-
-describe('island sizing', () => {
-  it('keeps an empty campus at the floor radius rather than a dot', () => {
-    expect(calculateIslandRadius(0)).toBe(ISLAND_MIN_RADIUS);
-  });
-
-  it('never lets a studio hang off the island edge', () => {
-    // The invariant that matters: whatever the project count, the outermost studio's far
-    // corner still lands on grass.
-    for (let count = 1; count <= 40; count += 1) {
-      const radius = calculateIslandRadius(count);
-      for (let i = 0; i < count; i += 1) {
-        const p = calculateStudioPlacement(i).position;
-        const reach = Math.hypot(p[0], p[2]) + STUDIO_HALF_WIDTH;
-        expect(radius).toBeGreaterThanOrEqual(reach);
-      }
-    }
-  });
-
-  it('grows with the campus instead of staying fixed', () => {
-    expect(calculateIslandRadius(30)).toBeGreaterThan(calculateIslandRadius(3));
-  });
-
-  it('sizes a small campus well inside the old fixed radius of 60', () => {
-    // The dead-lawn bug: 3 studios sat on ring 0 (radius 21) inside a radius-60 island.
-    expect(calculateIslandRadius(3)).toBeLessThan(45);
-  });
-});
 
 describe('visual state mapping', () => {
   it.each<[AgentActivity, string]>([
@@ -108,7 +80,7 @@ describe('movement / location behaviour', () => {
   });
 
   it('gives multiple agents distinct desk positions', () => {
-    const positions = [0, 1, 2, 3].map((i) => deskPosition(i).join(','));
+    const positions = [0, 1, 2, 3].map((i) => deskLocal(i).join(','));
     expect(new Set(positions).size).toBe(4);
   });
 
@@ -153,20 +125,5 @@ describe('activity summaries (human readable, no raw payloads)', () => {
       receivedAt: new Date().toISOString(),
     };
     expect(summarizeTimelineEntry(entry)).toContain('Running a command');
-  });
-});
-
-describe('campus layout', () => {
-  it('is deterministic and expands into rings around the hub', () => {
-    const first = calculateStudioPlacement(0);
-    const same = calculateStudioPlacement(0);
-    expect(first.position).toEqual(same.position);
-    expect(first.ring).toBe(0);
-    expect(calculateStudioPlacement(6).ring).toBe(1);
-  });
-
-  it('places distinct studios at distinct positions', () => {
-    const positions = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => calculateStudioPlacement(i).position.join(','));
-    expect(new Set(positions).size).toBe(8);
   });
 });
