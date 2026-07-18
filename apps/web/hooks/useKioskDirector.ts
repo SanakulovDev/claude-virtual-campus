@@ -23,16 +23,19 @@ export function useKioskDirector(): void {
       const s = useCampusStore.getState();
       const projects = Object.values(s.projects);
 
+      // Guard on mode too: a stray double-click on an avatar (touch kiosk) puts the camera
+      // in follow mode without clearing focusedProjectId, and an id-only check would never
+      // steer back to the room framing.
       const attention = projects.find((p) => p.agents.some((a) => selectAgentVisualState(a) === 'attention'));
       if (attention) {
-        if (s.camera.focusedProjectId !== attention.id) s.focusProjectRoom(attention.id);
+        if (s.camera.mode !== 'room' || s.camera.focusedProjectId !== attention.id) s.focusProjectRoom(attention.id);
         return;
       }
 
       const latest = s.timeline[0];
       const fresh = latest && Date.now() - new Date(latest.receivedAt).getTime() < FOCUS_HOLD_MS;
       if (fresh && s.projects[latest.projectId]) {
-        if (s.camera.focusedProjectId !== latest.projectId) s.focusProjectRoom(latest.projectId);
+        if (s.camera.mode !== 'room' || s.camera.focusedProjectId !== latest.projectId) s.focusProjectRoom(latest.projectId);
         return;
       }
 
