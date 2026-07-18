@@ -12,6 +12,7 @@ import { CommandClassificationModule } from './commands/command-classification.m
 import { FileClassificationModule } from './files/file-classification.module';
 import { ApprovalsModule } from './approvals/approvals.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { RunsModule } from './runs/runs.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { RealtimeModule } from './realtime/realtime.module';
     EventsModule,
     ApprovalsModule,
     RealtimeModule,
+    RunsModule,
   ],
 })
 export class AppModule {}

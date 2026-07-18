@@ -10,6 +10,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { SessionsService } from './sessions/sessions.service';
+import { resolveApiHost } from './config/api-host';
 
 const MAX_JSON_BODY_BYTES = '512kb';
 
@@ -24,7 +25,7 @@ async function bootstrap() {
   const port = Number(process.env.API_PORT ?? 4000);
   // Local default stays 127.0.0.1 (security); containers set API_HOST=0.0.0.0 so the
   // published port is reachable from the host.
-  const host = process.env.API_HOST ?? '127.0.0.1';
+  const host = resolveApiHost();
   await app.listen(port, host);
   // eslint-disable-next-line no-console
   console.log(`API listening on http://${host}:${port}`);
