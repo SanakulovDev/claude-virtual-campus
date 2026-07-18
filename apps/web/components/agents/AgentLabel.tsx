@@ -14,14 +14,20 @@ export function AgentLabel({
   role,
   state,
   ambientLabel,
+  resting = false,
   selected,
 }: {
   name: string;
   role?: string | null;
   state: SimplifiedAgentVisualState;
   ambientLabel?: string | null;
+  resting?: boolean;
   selected: boolean;
 }) {
+  // Resting (cosmetic) reads before ambient/state -- a slate dot + "Resting · zzz".
+  const dotColor = resting ? '#8a93a0' : ambientLabel ? '#e0a94a' : STATE_COLOR[state];
+  const textColor = resting ? '#aeb6c0' : ambientLabel ? '#f2c877' : '#cdd3db';
+  const statusText = resting ? 'Resting · zzz' : ambientLabel ? `${ambientLabel} · ambient` : STATE_LABEL[state];
   return (
     <Html position={[0, 2.35, 0]} center distanceFactor={16} pointerEvents="none" zIndexRange={HTML_Z_RANGE}>
       <div
@@ -42,17 +48,8 @@ export function AgentLabel({
           {role && <span style={{ color: '#aeb6c0', fontSize: 9.5 }}>· {role}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 1 }}>
-          <span
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: 999,
-              background: ambientLabel ? '#e0a94a' : STATE_COLOR[state],
-            }}
-          />
-          <span style={{ color: ambientLabel ? '#f2c877' : '#cdd3db', fontSize: 9.5 }}>
-            {ambientLabel ? `${ambientLabel} · ambient` : STATE_LABEL[state]}
-          </span>
+          <span style={{ width: 6, height: 6, borderRadius: 999, background: dotColor }} />
+          <span style={{ color: textColor, fontSize: 9.5 }}>{statusText}</span>
         </div>
       </div>
     </Html>

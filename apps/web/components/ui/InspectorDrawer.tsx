@@ -9,7 +9,7 @@ import { summarizeTimelineEntry } from '../../selectors/activity-summary.selecto
 import { selectAgentActivityLine } from '../../selectors/activity-source.selector';
 import { useAmbientActivity } from '../../hooks/useAmbientActivity';
 import { STATE_COLOR, STATE_LABEL } from '../../lib/theme';
-import { renameAgent } from '../../lib/socket';
+import { renameAgent, removeProject } from '../../lib/socket';
 import type { AgentRow, ProjectRow, TimelineEntry } from '../../lib/types';
 
 function agentRole(agent: AgentRow): string {
@@ -75,6 +75,44 @@ function RenameControl({ agent }: { agent: AgentRow }) {
       <button onClick={() => setEditing(false)} className="rounded-md border border-slate-300 px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-100">
         Cancel
       </button>
+    </div>
+  );
+}
+
+/** Two-click "Remove from campus". The server cascades the room's data and broadcasts
+ * project:removed, which closes this drawer. A live project reappears on its next event. */
+function RemoveProjectControl({ project }: { project: ProjectRow }) {
+  const [confirming, setConfirming] = useState(false);
+
+  if (!confirming) {
+    return (
+      <button
+        onClick={() => setConfirming(true)}
+        className="w-full rounded-md border border-rose-200 bg-white py-2 text-xs font-medium text-rose-600 hover:bg-rose-50"
+      >
+        Remove from campus
+      </button>
+    );
+  }
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[11px] text-slate-500">
+        Removes this room and its history. It returns if the project sends new activity.
+      </p>
+      <div className="flex gap-2">
+        <button
+          onClick={() => void removeProject(project.id)}
+          className="flex-1 rounded-md bg-rose-600 py-2 text-xs font-medium text-white hover:bg-rose-500"
+        >
+          Confirm remove
+        </button>
+        <button
+          onClick={() => setConfirming(false)}
+          className="flex-1 rounded-md border border-slate-300 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
@@ -145,6 +183,9 @@ function AgentInspector({ agent, project, timeline }: { agent: AgentRow; project
   const entries = timeline.filter((e) => e.agentId === agent.id);
   const ambient = useAmbientActivity(agent, project?.id ?? '');
   const line = selectAgentActivityLine(agent, ambient);
+  const resting = useCampusStore((s) => Boolean(s.restingAgentIds[agent.id]));
+  const toggleRest = useCampusStore((s) => s.toggleAgentRest);
+  const canRest = state === 'idle' || resting; // resting a busy bot is meaningless
 
   return (
     <>
@@ -178,14 +219,25 @@ function AgentInspector({ agent, project, timeline }: { agent: AgentRow; project
         <RecentActivity entries={entries} />
       </Section>
 
-      <div className="px-4 py-3">
+      <div className="flex gap-2 px-4 py-3">
         {following ? (
-          <button onClick={stopFollowing} className="w-full rounded-md border border-slate-300 bg-white py-2 text-xs font-medium text-slate-700 hover:bg-slate-100">
+          <button onClick={stopFollowing} className="flex-1 rounded-md border border-slate-300 bg-white py-2 text-xs font-medium text-slate-700 hover:bg-slate-100">
             Stop following
           </button>
         ) : (
-          <button onClick={() => followAgent(agent.id)} className="w-full rounded-md bg-sky-600 py-2 text-xs font-medium text-white hover:bg-sky-500">
+          <button onClick={() => followAgent(agent.id)} className="flex-1 rounded-md bg-sky-600 py-2 text-xs font-medium text-white hover:bg-sky-500">
             Follow agent
+          </button>
+        )}
+        {canRest && (
+          <button
+            onClick={() => toggleRest(agent.id)}
+            title="Cosmetic only: rests an idle bot. Real activity wakes it instantly."
+            className={`flex-1 rounded-md border py-2 text-xs font-medium ${
+              resting ? 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            {resting ? 'Wake' : 'Rest'}
           </button>
         )}
       </div>
@@ -277,6 +329,10 @@ function ProjectInspector({ project, timeline }: { project: ProjectRow; timeline
       <Section title="Recent activity">
         <RecentActivity entries={entries} />
       </Section>
+
+      <div className="px-4 py-3">
+        <RemoveProjectControl project={project} />
+      </div>
 
       <DeveloperDetails
         rows={[

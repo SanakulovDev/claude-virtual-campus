@@ -58,6 +58,7 @@ function StudioAgent({
   const location = useDebouncedLocation(desired);
   const target = locationPosition(location, deskIndex, crowd.index, crowd.count);
   const ambient = useAmbientActivity(agent, projectId);
+  const resting = useCampusStore((s) => Boolean(s.restingAgentIds[agent.id]));
   const selectAgent = useCampusStore((s) => s.selectAgent);
   const followAgent = useCampusStore((s) => s.followAgent);
   const selectedAgentId = useCampusStore((s) => s.selection.selectedAgentId);
@@ -67,6 +68,7 @@ function StudioAgent({
       agent={agent}
       visualState={visualState}
       ambient={ambient}
+      resting={resting}
       target={target}
       restFacingY={REST_FACING[location]}
       selected={selectedAgentId === agent.id}

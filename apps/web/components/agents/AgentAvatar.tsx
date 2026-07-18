@@ -14,6 +14,8 @@ interface AgentAvatarProps {
   agent: AgentRow;
   visualState: SimplifiedAgentVisualState;
   ambient: AmbientActivity | null;
+  /** User put this bot to sleep (cosmetic). Overrides ambient; dims optics and slumps. */
+  resting?: boolean;
   target: [number, number, number];
   restFacingY: number;
   selected: boolean;
@@ -122,7 +124,7 @@ function Accessory({ kind, accent }: { kind: AgentAccessory; accent: string }) {
  * location; work pose comes from its simplified visual state. When the agent is genuinely
  * idle and ambient life is on it does a soft sway -- clearly labelled ambient, never fake work.
  */
-export function AgentAvatar({ agent, visualState, ambient, target, restFacingY, selected, onSelect, onFollow }: AgentAvatarProps) {
+export function AgentAvatar({ agent, visualState, ambient, resting = false, target, restFacingY, selected, onSelect, onFollow }: AgentAvatarProps) {
   const root = useRef<THREE.Group>(null);
   const torso = useRef<THREE.Group>(null);
   const leftArm = useRef<THREE.Mesh>(null);
@@ -151,6 +153,8 @@ export function AgentAvatar({ agent, visualState, ambient, target, restFacingY, 
         const angle = Math.atan2(dir.x, dir.z);
         g.rotation.y = dampAngle(g.rotation.y, angle, delta * 6);
       }
+    } else if (resting) {
+      g.rotation.y = dampAngle(g.rotation.y, restFacingY, delta * 3);
     } else if (ambient) {
       // gentle idle-life sway so ambient agents read as alive, not frozen
       g.rotation.y = dampAngle(g.rotation.y, restFacingY + Math.sin(t * 0.8) * 0.35, delta * 3);
@@ -158,11 +162,18 @@ export function AgentAvatar({ agent, visualState, ambient, target, restFacingY, 
       g.rotation.y = dampAngle(g.rotation.y, restFacingY, delta * 5);
     }
 
-    const seated = !moving && !ambient && (visualState === 'working' || visualState === 'checking');
-    const targetY = seated ? -0.28 : ambient && !moving ? Math.sin(t * 1.6) * 0.05 : 0;
+    const seated = !moving && !resting && !ambient && (visualState === 'working' || visualState === 'checking');
+    // resting: slumped, with a slow "breathing" bob so a powered-down bot still reads as alive.
+    const targetY = resting
+      ? -0.42 + Math.sin(t * 0.9) * 0.03
+      : seated
+        ? -0.28
+        : ambient && !moving
+          ? Math.sin(t * 1.6) * 0.05
+          : 0;
     if (torso.current) {
       torso.current.position.y = THREE.MathUtils.lerp(torso.current.position.y, targetY, Math.min(1, delta * 6));
-      if (visualState === 'completed') {
+      if (visualState === 'completed' && !resting) {
         torso.current.position.y = Math.abs(Math.sin(t * 6)) * 0.35;
       }
     }
@@ -171,6 +182,10 @@ export function AgentAvatar({ agent, visualState, ambient, target, restFacingY, 
       if (moving) {
         leftArm.current.rotation.x = Math.sin(t * 8) * 0.5;
         rightArm.current.rotation.x = -Math.sin(t * 8) * 0.5;
+      } else if (resting) {
+        // arms hang slack at the sides
+        leftArm.current.rotation.x = THREE.MathUtils.lerp(leftArm.current.rotation.x, 0.15, Math.min(1, delta * 4));
+        rightArm.current.rotation.x = THREE.MathUtils.lerp(rightArm.current.rotation.x, 0.15, Math.min(1, delta * 4));
       } else if (ambient) {
         const s = Math.sin(t * 1.4) * 0.2;
         leftArm.current.rotation.x = -0.2 + s;
@@ -199,6 +214,8 @@ export function AgentAvatar({ agent, visualState, ambient, target, restFacingY, 
   });
 
   const statusColor = STATE_COLOR[visualState];
+  // Powered-down bot: optics dim to a faint glow.
+  const glow = resting ? 0.12 : 1;
 
   return (
     <group
@@ -256,7 +273,7 @@ export function AgentAvatar({ agent, visualState, ambient, target, restFacingY, 
         {/* status collar */}
         <mesh position={[0, 1.46, 0]}>
           <torusGeometry args={[0.2, 0.04, 8, 20]} />
-          <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.45} />
+          <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.45 * glow} />
         </mesh>
 
         {/* segmented arms: shoulder joint + plated upper arm + gripper claw */}
@@ -293,7 +310,7 @@ export function AgentAvatar({ agent, visualState, ambient, target, restFacingY, 
         </RoundedBox>
         <mesh position={[0, 1.82, 0.21]} rotation={[0, 0, Math.PI / 2]}>
           <capsuleGeometry args={[0.045, 0.12, 4, 8]} />
-          <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={1.1} toneMapped={false} />
+          <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={1.1 * glow} toneMapped={false} />
         </mesh>
         {/* ear servos */}
         {[-0.24, 0.24].map((x) => (
@@ -311,7 +328,7 @@ export function AgentAvatar({ agent, visualState, ambient, target, restFacingY, 
             </mesh>
             <mesh position={[0, 0.2, 0]}>
               <sphereGeometry args={[0.045, 10, 10]} />
-              <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.9} toneMapped={false} />
+              <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.9 * glow} toneMapped={false} />
             </mesh>
           </group>
         )}
@@ -339,7 +356,7 @@ export function AgentAvatar({ agent, visualState, ambient, target, restFacingY, 
         </mesh>
       )}
 
-      <AgentLabel name={agent.displayName} role={agent.role} state={visualState} ambientLabel={ambient?.label ?? null} selected={selected} />
+      <AgentLabel name={agent.displayName} role={agent.role} state={visualState} ambientLabel={ambient?.label ?? null} resting={resting} selected={selected} />
     </group>
   );
 }
