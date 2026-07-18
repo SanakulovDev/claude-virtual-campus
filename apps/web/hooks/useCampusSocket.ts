@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { SOCKET_EVENTS } from '@campus/contracts';
 import { getSocket, apiUrl } from '../lib/socket';
 import { useCampusStore } from '../stores/campusStore';
-import type { AgentRow, ApprovalRow, ProjectRow, TimelineEntry } from '../lib/types';
+import type { AgentRow, ApprovalRow, ProjectRow, TimelineEntry, RunRow } from '../lib/types';
 
 /** Wires the Socket.IO connection into the zustand store; call once near the app root. */
 export function useCampusSocket() {
@@ -16,6 +16,7 @@ export function useCampusSocket() {
   const addTimelineEvent = useCampusStore((s) => s.addTimelineEvent);
   const requestApproval = useCampusStore((s) => s.requestApproval);
   const resolveApproval = useCampusStore((s) => s.resolveApproval);
+  const upsertRun = useCampusStore((s) => s.upsertRun);
 
   useEffect(() => {
     const socket = getSocket();
@@ -62,6 +63,7 @@ export function useCampusSocket() {
     function onApprovalResolved(approval: ApprovalRow) {
       resolveApproval(approval.id, approval.status);
     }
+    const onRunEvent = (run: RunRow) => upsertRun(run);
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
@@ -73,6 +75,8 @@ export function useCampusSocket() {
     socket.on(SOCKET_EVENTS.eventReceived, onEventReceived);
     socket.on(SOCKET_EVENTS.approvalRequested, onApprovalRequested);
     socket.on(SOCKET_EVENTS.approvalResolved, onApprovalResolved);
+    socket.on(SOCKET_EVENTS.runStarted, onRunEvent);
+    socket.on(SOCKET_EVENTS.runFinished, onRunEvent);
 
     if (socket.connected) onConnect();
 
@@ -87,6 +91,8 @@ export function useCampusSocket() {
       socket.off(SOCKET_EVENTS.eventReceived, onEventReceived);
       socket.off(SOCKET_EVENTS.approvalRequested, onApprovalRequested);
       socket.off(SOCKET_EVENTS.approvalResolved, onApprovalResolved);
+      socket.off(SOCKET_EVENTS.runStarted, onRunEvent);
+      socket.off(SOCKET_EVENTS.runFinished, onRunEvent);
     };
   }, []);
 }

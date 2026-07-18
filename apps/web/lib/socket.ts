@@ -1,4 +1,5 @@
 import { io, type Socket } from 'socket.io-client';
+import type { RunRow } from './types';
 
 let socket: Socket | null = null;
 
@@ -41,4 +42,28 @@ export async function installProject(path: string): Promise<void> {
     const body = (await res.json().catch(() => null)) as { message?: string } | null;
     throw new Error(body?.message ?? `Install failed (${res.status})`);
   }
+}
+
+/** Recent runs for a project (newest first). */
+export async function fetchProjectRuns(projectId: string): Promise<RunRow[]> {
+  const res = await fetch(apiUrl(`/api/projects/${projectId}/runs`));
+  if (!res.ok) return [];
+  return (await res.json()) as RunRow[];
+}
+
+/** Start a headless run. Throws with the server's message (403/409/429) for inline display. */
+export async function startRun(projectId: string, prompt: string): Promise<void> {
+  const res = await fetch(apiUrl(`/api/projects/${projectId}/runs`), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(body?.message ?? `Run failed to start (${res.status})`);
+  }
+}
+
+export async function stopRun(runId: string): Promise<void> {
+  await fetch(apiUrl(`/api/runs/${runId}/stop`), { method: 'POST' });
 }

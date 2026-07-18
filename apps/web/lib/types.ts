@@ -82,6 +82,17 @@ export interface ApprovalRow {
   requestedAt: string;
 }
 
+export interface RunRow {
+  id: string;
+  projectId: string;
+  prompt: string;
+  status: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'STOPPED';
+  resultText: string | null;
+  exitCode: number | null;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
 export interface TimelineEntry {
   id: string;
   projectId: string;

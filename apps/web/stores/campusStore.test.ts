@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { useCampusStore } from './campusStore';
-import type { AgentRow, ProjectRow, TimelineEntry } from '../lib/types';
+import type { AgentRow, ProjectRow, TimelineEntry, RunRow } from '../lib/types';
 
 function makeProject(overrides: Partial<ProjectRow> = {}): ProjectRow {
   return {
@@ -25,6 +25,7 @@ beforeEach(() => {
     connectionStatus: 'connecting',
     projects: {},
     approvals: {},
+    runs: {},
     timeline: [],
     camera: { mode: 'campus', focusedProjectId: null, followedAgentId: null },
     selection: { selectedProjectId: null, selectedAgentId: null },
@@ -242,5 +243,23 @@ describe('inspector / dock UI behaviour', () => {
     // A real event makes the agent non-idle -> it must wake.
     store.upsertAgent('a1', 'p1', { activity: 'coding' });
     expect(useCampusStore.getState().restingAgentIds.a1).toBeUndefined();
+  });
+});
+
+describe('runs slice', () => {
+  it('setProjectRuns replaces a project run list', () => {
+    const run = { id: 'r1', projectId: 'p1', prompt: 'x', status: 'RUNNING', resultText: null, exitCode: null, startedAt: 't', finishedAt: null } as const;
+    useCampusStore.getState().setProjectRuns('p1', [run]);
+    expect(useCampusStore.getState().runs.p1).toHaveLength(1);
+  });
+
+  it('upsertRun prepends new runs and replaces existing ones in place', () => {
+    const a = { id: 'a', projectId: 'p1', prompt: '1', status: 'RUNNING', resultText: null, exitCode: null, startedAt: 't1', finishedAt: null };
+    useCampusStore.getState().setProjectRuns('p1', [a as never]);
+    useCampusStore.getState().upsertRun({ ...a, status: 'COMPLETED', resultText: 'done' } as never);
+    expect(useCampusStore.getState().runs.p1![0]!.status).toBe('COMPLETED');
+    useCampusStore.getState().upsertRun({ ...a, id: 'b', prompt: '2' } as never);
+    expect(useCampusStore.getState().runs.p1![0]!.id).toBe('b');
+    expect(useCampusStore.getState().runs.p1).toHaveLength(2);
   });
 });

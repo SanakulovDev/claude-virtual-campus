@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AgentRow, ApprovalRow, ProjectRow, TimelineEntry } from '../lib/types';
+import type { AgentRow, ApprovalRow, ProjectRow, TimelineEntry, RunRow } from '../lib/types';
 import { selectAgentVisualState } from '../selectors/visual-state.selector';
 
 const MAX_TIMELINE_ENTRIES = 200;
@@ -28,6 +28,7 @@ interface CampusStoreState {
   connectionStatus: 'connecting' | 'connected' | 'disconnected';
   projects: Record<string, ProjectRow>;
   approvals: Record<string, ApprovalRow>;
+  runs: Record<string, RunRow[]>;
   timeline: TimelineEntry[];
   camera: CameraState;
   selection: SelectionState;
@@ -47,6 +48,8 @@ interface CampusStoreState {
   addTimelineEvent: (entry: TimelineEntry) => void;
   requestApproval: (approval: ApprovalRow) => void;
   resolveApproval: (approvalId: string, status: ApprovalRow['status']) => void;
+  setProjectRuns: (projectId: string, runs: RunRow[]) => void;
+  upsertRun: (run: RunRow) => void;
   selectProject: (projectId: string | null) => void;
   selectAgent: (agentId: string | null) => void;
   focusProjectRoom: (projectId: string) => void;
@@ -72,6 +75,7 @@ export const useCampusStore = create<CampusStoreState>((set) => ({
   connectionStatus: 'connecting',
   projects: {},
   approvals: {},
+  runs: {},
   timeline: [],
   camera: { mode: 'campus', focusedProjectId: null, followedAgentId: null },
   selection: { selectedProjectId: null, selectedAgentId: null },
@@ -106,6 +110,7 @@ export const useCampusStore = create<CampusStoreState>((set) => ({
       const removed = state.projects[projectId];
       if (!removed) return state;
       const { [projectId]: _dropped, ...projects } = state.projects;
+      const { [projectId]: _droppedRuns, ...runs } = state.runs;
 
       // Drop any resting flags for agents that no longer exist.
       const removedAgentIds = new Set(removed.agents.map((a) => a.id));
@@ -123,6 +128,7 @@ export const useCampusStore = create<CampusStoreState>((set) => ({
       const selectionCleared = state.selection.selectedProjectId === projectId;
       return {
         projects,
+        runs,
         restingAgentIds,
         camera,
         selection: selectionCleared ? { selectedProjectId: null, selectedAgentId: null } : state.selection,
@@ -185,6 +191,17 @@ export const useCampusStore = create<CampusStoreState>((set) => ({
       const existing = state.approvals[approvalId];
       if (!existing) return state;
       return { approvals: { ...state.approvals, [approvalId]: { ...existing, status } } };
+    }),
+
+  setProjectRuns: (projectId, runs) =>
+    set((state) => ({ runs: { ...state.runs, [projectId]: runs } })),
+
+  upsertRun: (run) =>
+    set((state) => {
+      const list = state.runs[run.projectId] ?? [];
+      const exists = list.some((r) => r.id === run.id);
+      const next = exists ? list.map((r) => (r.id === run.id ? run : r)) : [run, ...list];
+      return { runs: { ...state.runs, [run.projectId]: next.slice(0, 20) } };
     }),
 
   selectProject: (projectId) =>
