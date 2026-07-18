@@ -94,6 +94,15 @@ Each simulator creates a real temporary git repository with realistic files
 payload sequence to the real `/api/claude/events` endpoint — there is no separate fake
 frontend path.
 
+## Kiosk mode
+
+`http://localhost:3100/?kiosk=1` runs the campus as a zero-interaction wall display: the
+HUD (top bar, dock, drawers, timeline) is hidden and an auto-director camera takes over --
+attention anywhere wins immediately, otherwise it frames the room with the most recent
+event, and it pulls back to the whole-lab overview after ~20s of quiet. A pulsing red
+edge frame flashes across the screen while any agent is in the attention state. Kiosk mode
+has no interaction surface, so approvals still need a normal (non-kiosk) browser window.
+
 ## Connecting a project
 
 There is no per-language setup. Put `campus` on your PATH once (`pnpm campus:link` from this

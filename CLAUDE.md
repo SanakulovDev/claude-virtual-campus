@@ -180,7 +180,9 @@ pnpm test:e2e   # stop `pnpm dev` first -- see below
 
 `test:e2e` starts its own API and web on the same ports `pnpm dev` uses, so with the dev
 stack running it fails as `TypeError: fetch failed / ECONNRESET`, which looks like a broken
-pipeline rather than a port clash. Stop `pnpm dev` before running it.
+pipeline rather than a port clash. Stop `pnpm dev` before running it. The Docker Compose
+stack shadows the same ports too (api on 4000 via IPv6 `localhost`) -- run `docker compose
+stop api web` before `test:e2e` if you've been running the stack in containers.
 
 ## Longer references
 

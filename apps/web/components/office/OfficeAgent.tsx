@@ -6,7 +6,8 @@ import { useCampusStore } from '../../stores/campusStore';
 import { useDebouncedLocation } from '../../hooks/useDebouncedLocation';
 import { useAmbientActivity } from '../../hooks/useAmbientActivity';
 import { selectAgentVisualState, selectStudioLocation } from '../../selectors/visual-state.selector';
-import { roomToWorld, deskLocal, tableLocal, reviewSpot, ambientSpot, roomPlacement } from '../../selectors/office-layout';
+import { ambientSpot, roomPlacement } from '../../selectors/office-layout';
+import { agentWorldTarget } from '../../selectors/agent-world-target';
 import { AgentAvatar } from '../agents/AgentAvatar';
 
 /** Facing when parked: desks face the back wall (local -z); review faces the screen (north). */
@@ -44,14 +45,7 @@ export function OfficeAgent({
       const spot = ambientSpot(ambient.key, deskIndex + crowd.index + 1, projectIndex, projectCount);
       if (spot) return spot;
     }
-    if (location === 'review-screen') return reviewSpot(crowd.index, crowd.count);
-    if (location === 'planning-table') {
-      const t = tableLocal();
-      const offset = (crowd.index - (crowd.count - 1) / 2) * 1.2;
-      return roomToWorld(projectIndex, [t[0] + offset, 0, t[2] + 1.2]);
-    }
-    const d = deskLocal(deskIndex);
-    return roomToWorld(projectIndex, [d[0], 0, d[2] + 0.95]);
+    return agentWorldTarget(location, projectIndex, deskIndex, crowd.index, crowd.count);
   }, [ambient?.key, resting, location, deskIndex, crowd.index, crowd.count, projectIndex, projectCount]);
 
   return (

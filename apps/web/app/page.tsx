@@ -13,6 +13,7 @@ import { ApprovalDrawer } from '../components/ui/ApprovalDrawer';
 import { AnalyticsPanel } from '../components/ui/AnalyticsPanel';
 import { CampusStatusPill } from '../components/ui/CampusStatusPill';
 import { useCampusStore } from '../stores/campusStore';
+import { selectAgentVisualState } from '../selectors/visual-state.selector';
 
 const CampusScene = dynamic(() => import('../components/campus/CampusScene').then((m) => m.CampusScene), {
   ssr: false,
@@ -26,6 +27,9 @@ export default function Page() {
   const closeInspector = useCampusStore((s) => s.closeInspector);
   const stopFollowing = useCampusStore((s) => s.stopFollowingAgent);
   const cameraMode = useCampusStore((s) => s.camera.mode);
+  const anyAttention = useCampusStore((s) =>
+    Object.values(s.projects).some((p) => p.agents.some((a) => selectAgentVisualState(a) === 'attention')),
+  );
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -55,6 +59,9 @@ export default function Page() {
         </main>
       </div>
       {!kiosk && <ContextTimeline />}
+      {kiosk && anyAttention && (
+        <div aria-hidden className="pointer-events-none fixed inset-0 z-50 animate-pulse border-8 border-red-500/80" />
+      )}
     </div>
   );
 }

@@ -7,9 +7,10 @@ import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useCampusStore } from '../../stores/campusStore';
 import { useKioskMode } from '../../hooks/useKioskMode';
-import { buildingBounds, roomPlacement, roomToWorld, deskLocal, reviewSpot, ROOM_W, ROOM_D } from '../../selectors/office-layout';
+import { buildingBounds, roomPlacement, ROOM_W, ROOM_D } from '../../selectors/office-layout';
 import { assignDesks } from '../../selectors/desk-assignment';
 import { selectAgentVisualState, selectStudioLocation } from '../../selectors/visual-state.selector';
+import { agentWorldTarget } from '../../selectors/agent-world-target';
 import type { ProjectRow } from '../../lib/types';
 
 const ISO_DIR = new THREE.Vector3(1, 1.15, 1).normalize();
@@ -23,12 +24,7 @@ function agentWorldPosition(projects: ProjectRow[], agentId: string): THREE.Vect
     const entry = assignDesks(project.agents).find((a) => a.agent.id === agentId);
     if (!entry) continue;
     const loc = selectStudioLocation(selectAgentVisualState(entry.agent));
-    if (loc === 'review-screen') {
-      const s = reviewSpot(0, 1);
-      return new THREE.Vector3(s[0], 1, s[2]);
-    }
-    const d = deskLocal(entry.deskIndex);
-    const w = roomToWorld(i, [d[0], 0, d[2] + 0.95]);
+    const w = agentWorldTarget(loc, i, entry.deskIndex, 0, 1);
     return new THREE.Vector3(w[0], 1, w[2]);
   }
   return null;
