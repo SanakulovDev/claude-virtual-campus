@@ -1723,11 +1723,13 @@ and change the returned JSX:
 
 - [ ] **Step 4: Bigger labels in kiosk**
 
-In `apps/web/components/agents/AgentLabel.tsx` add `import { useKioskMode } from '../../hooks/useKioskMode';`, then inside the component body add `const kiosk = useKioskMode();` and change the `<Html>` opening tag's `distanceFactor` (a smaller distanceFactor renders the label larger):
+In `apps/web/components/agents/AgentLabel.tsx` add `import { useKioskMode } from '../../hooks/useKioskMode';`, then inside the component body add `const kiosk = useKioskMode();` and scale the pill via CSS on its inner div (NOT via `distanceFactor` — with an orthographic camera drei's distanceFactor scales the pill to viewport size; it was removed during Task 6/7 debugging and must stay off):
 
 ```tsx
-    <Html position={[0, 2.35, 0]} center distanceFactor={kiosk ? 11 : 16} pointerEvents="none" zIndexRange={HTML_Z_RANGE}>
+          fontSize: kiosk ? 15 : 11,
 ```
+
+(replace the `fontSize: 11` line in the pill's style object; the two inner `fontSize: 9.5` spans become `fontSize: kiosk ? 13 : 9.5`).
 
 In `apps/web/components/office/OfficeRoom.tsx` do the same (`const kiosk = useKioskMode();`) and on the sign `<button>`'s `style` object add `fontSize: kiosk ? '1.05rem' : undefined`.
 

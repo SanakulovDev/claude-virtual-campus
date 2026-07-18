@@ -29,7 +29,10 @@ export function AgentLabel({
   const textColor = resting ? '#aeb6c0' : ambientLabel ? '#f2c877' : '#cdd3db';
   const statusText = resting ? 'Resting · zzz' : ambientLabel ? `${ambientLabel} · ambient` : STATE_LABEL[state];
   return (
-    <Html position={[0, 2.35, 0]} center distanceFactor={16} pointerEvents="none" zIndexRange={HTML_Z_RANGE}>
+    // No distanceFactor: with an orthographic camera drei scales it against ortho zoom and
+    // the pill blows up to viewport size (the "black screen" that killed the previous
+    // redesign attempt). Screen-space constant size is right for a fixed-zoom isometric camera.
+    <Html position={[0, 2.35, 0]} center pointerEvents="none" zIndexRange={HTML_Z_RANGE}>
       <div
         style={{
           minWidth: 0,
