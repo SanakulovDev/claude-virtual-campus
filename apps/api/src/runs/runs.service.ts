@@ -72,6 +72,31 @@ export class RunsService implements OnModuleInit, OnModuleDestroy {
     return this.prisma.campusRun.findUnique({ where: { id: run.id } }) as Promise<CampusRun>;
   }
 
+  async continue(parentId: string, prompt: string, overrides: { permissionMode?: string; model?: string } = {}): Promise<CampusRun> {
+    this.assertLoopback();
+    const parent = await this.prisma.campusRun.findUnique({ where: { id: parentId } });
+    if (!parent) throw new NotFoundException(`Run ${parentId} not found`);
+    if (!parent.sessionId) throw new ConflictException('parent run has no session to resume');
+    const queued = await this.prisma.campusRun.count({ where: { projectId: parent.projectId, status: 'QUEUED' } });
+    if (queued >= QUEUE_LIMIT) throw new HttpException('queue is full for this project', 429);
+
+    const run = await this.prisma.campusRun.create({
+      data: {
+        projectId: parent.projectId,
+        prompt,
+        status: 'QUEUED',
+        parentRunId: parent.id,
+        conversationId: parent.conversationId ?? parent.id,
+        sessionId: parent.sessionId, // copied so launch() emits --resume
+        permissionMode: overrides.permissionMode ?? parent.permissionMode,
+        model: overrides.model ?? parent.model,
+      },
+    });
+    this.realtime.emitToCampus(SOCKET_EVENTS.runStarted, run);
+    await this.schedule();
+    return this.prisma.campusRun.findUnique({ where: { id: run.id } }) as Promise<CampusRun>;
+  }
+
   /** spawn with an args array + stdin prompt: the prompt is data, never argv, never shell. */
   private launch(run: CampusRun, cwd: string) {
     const args = ['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', run.permissionMode];

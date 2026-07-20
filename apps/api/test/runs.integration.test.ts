@@ -17,6 +17,7 @@ import { RunsService } from '../src/runs/runs.service';
  * contains leak-secret (proves resultText is redacted before persist/broadcast). */
 const STUB = `#!/bin/sh
 PROMPT=$(cat)
+echo "$@" >> "\${STUB_ARGS_FILE:-/dev/null}"
 echo "{\\"type\\":\\"system\\",\\"subtype\\":\\"init\\",\\"session_id\\":\\"sess-stub\\"}"
 echo "{\\"type\\":\\"assistant\\",\\"message\\":\\"db:[$DATABASE_URL]\\"}"
 echo "{\\"type\\":\\"assistant\\",\\"message\\":\\"$PROMPT\\"}"
@@ -52,7 +53,7 @@ describe('runs (integration)', () => {
     await writeFile(stubPath, STUB);
     await chmod(stubPath, 0o755);
     process.env.CLAUDE_BIN = stubPath;
-    process.env.RUN_ENV_ALLOWLIST = 'STUB_SLEEP'; // let the stub's sleep knob reach the child env
+    process.env.RUN_ENV_ALLOWLIST = 'STUB_SLEEP,STUB_ARGS_FILE'; // let the stub's sleep/argv-dump knobs reach the child env
     delete process.env.STUB_SLEEP;
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -279,5 +280,26 @@ describe('runs (integration)', () => {
     const row = await prisma.campusRun.findUnique({ where: { id: run.id } });
     expect(row!.status).toBe('COMPLETED'); // not clobbered
     expect(row!.resultText).toBe('done');
+  });
+
+  it('continues a conversation with --resume and inherited options', async () => {
+    const argsFile = path.join(await mkdtemp(path.join(tmpdir(), 'campus-args-')), 'args.log');
+    process.env.STUB_ARGS_FILE = argsFile;
+    const project = await makeProject('continue');
+    const first = await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'start', model: 'opus', permissionMode: 'plan' });
+    const firstDone = await waitForTerminal(first.body.id);
+    expect(firstDone.sessionId).toBe('sess-stub');
+
+    const cont = await request(app.getHttpServer()).post(`/api/runs/${first.body.id}/continue`).send({ prompt: 'and then?' });
+    expect(cont.status).toBe(201);
+    const contDone = await waitForTerminal(cont.body.id);
+    expect(contDone.parentRunId).toBe(first.body.id);
+    expect(contDone.conversationId).toBe(firstDone.conversationId);
+    expect(contDone.model).toBe('opus');          // inherited
+    expect(contDone.permissionMode).toBe('plan');  // inherited
+
+    const argsLog = (await import('node:fs')).readFileSync(argsFile, 'utf8');
+    expect(argsLog).toContain('--resume sess-stub');
+    delete process.env.STUB_ARGS_FILE;
   });
 });
