@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, HttpException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { ConflictException, ForbiddenException, HttpException, Injectable, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import type { CampusRun } from '@prisma/client';
@@ -11,18 +11,21 @@ import { buildRunEnv } from './run-env';
 import { parseStreamLine, clampPayload, extractOutcome, extractSessionId, type RunOutcome } from './stream-parser';
 import { selectClaimable } from './scheduler';
 
-const RUN_TIMEOUT_MS = Number(process.env.RUN_TIMEOUT_MS ?? 30 * 60 * 1000);
+const KILL_GRACE_MS = Number(process.env.RUN_KILL_GRACE_MS ?? 5000);
+/** Lazy (not a module-load const) so a test can boot a second app with its own override. */
+function runTimeoutMs() { return Number(process.env.RUN_TIMEOUT_MS ?? 30 * 60 * 1000); }
 const RUN_EVENT_MAX_BYTES = Number(process.env.RUN_EVENT_MAX_BYTES ?? 32 * 1024);
 const STDERR_CAP = 16 * 1024;
 const GLOBAL_RUN_LIMIT = 3;
 const QUEUE_LIMIT = 10;
 
 @Injectable()
-export class RunsService implements OnModuleInit {
+export class RunsService implements OnModuleInit, OnModuleDestroy {
   /** Live child handles; entries vanish on API restart (stop() then only flips the row). */
   private readonly children = new Map<string, ChildProcess>();
   private readonly seqCounters = new Map<string, number>();
   private readonly timedOut = new Set<string>();
+  private readonly timers = new Map<string, NodeJS.Timeout>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -36,6 +39,15 @@ export class RunsService implements OnModuleInit {
       data: { status: 'FAILED', resultText: 'API restarted', finishedAt: new Date() },
     });
     await this.schedule();
+  }
+
+  /** Best-effort signal on shutdown so a dev-server restart doesn't leave orphaned
+   * `claude` process groups. If the API itself is SIGKILLed this never runs -- that's
+   * what boot-time onModuleInit recovery (above) is for, not this. */
+  onModuleDestroy() {
+    for (const child of this.children.values()) {
+      if (child.pid) { try { process.kill(-child.pid, 'SIGTERM'); } catch { /* gone */ } }
+    }
   }
 
   private assertLoopback() {
@@ -71,6 +83,10 @@ export class RunsService implements OnModuleInit {
       env: buildRunEnv(process.env),
     });
     this.children.set(run.id, child);
+    this.timers.set(run.id, setTimeout(() => {
+      this.timedOut.add(run.id);
+      void this.teardown(run.id, 'STOPPING');
+    }, runTimeoutMs()));
     this.seqCounters.set(run.id, 0);
 
     child.stdin?.write(run.prompt);
@@ -104,9 +120,21 @@ export class RunsService implements OnModuleInit {
     child.on('error', (err) => void this.finalize(run.id, { status: 'FAILED', resultText: err.message }));
     child.on('close', (code) => {
       const timedOut = this.timedOut.delete(run.id);
-      const status = timedOut ? 'TIMED_OUT' : outcome?.status ?? (code === 0 ? 'COMPLETED' : 'FAILED');
-      const resultText = outcome?.resultText ?? (status === 'COMPLETED' ? '' : this.redactText(stderr.trim()) || `exit ${code}`);
-      void this.finalize(run.id, { ...(outcome ?? {}), status, resultText, exitCode: code ?? null });
+      void (async () => {
+        // STOPPING means a stop() request tore this child down deliberately -- that
+        // reads as STOPPED, not a nonzero-exit FAILED. timedOut wins over STOPPING since
+        // teardown() also flips the row to STOPPING on its way to a timeout kill.
+        const current = await this.prisma.campusRun.findUnique({ where: { id: run.id } });
+        const status = timedOut
+          ? 'TIMED_OUT'
+          : current?.status === 'STOPPING'
+            ? 'STOPPED'
+            : (outcome?.status ?? (code === 0 ? 'COMPLETED' : 'FAILED'));
+        const resultText =
+          outcome?.resultText ??
+          (status === 'COMPLETED' ? '' : status === 'STOPPED' ? 'stopped' : this.redactText(stderr.trim()) || `exit ${code}`);
+        await this.finalize(run.id, { ...(outcome ?? {}), status, resultText, exitCode: code ?? null });
+      })();
     });
   }
 
@@ -151,10 +179,13 @@ export class RunsService implements OnModuleInit {
     // intersection narrows to 'COMPLETED' | 'FAILED' and rejects 'TIMED_OUT'.
     outcome: Omit<Partial<RunOutcome>, 'status'> & { status: CampusRun['status']; resultText?: string | null; exitCode?: number | null },
   ) {
+    const timer = this.timers.get(runId);
+    if (timer) { clearTimeout(timer); this.timers.delete(runId); }
     this.children.delete(runId);
     this.seqCounters.delete(runId);
     const res = await this.prisma.campusRun.updateMany({
-      where: { id: runId, status: { in: ['STARTING', 'RUNNING', 'STOPPING'] } },
+      // QUEUED included: stop() finalizes a queued run directly (no child, no teardown).
+      where: { id: runId, status: { in: ['QUEUED', 'STARTING', 'RUNNING', 'STOPPING'] } },
       data: {
         status: outcome.status,
         resultText: outcome.resultText ?? undefined,
@@ -217,23 +248,44 @@ export class RunsService implements OnModuleInit {
     }
   }
 
+  /** Group SIGTERM -> grace -> group SIGKILL. The child's own close handler runs
+   * finalize once it actually exits; this method never finalizes directly. */
+  private async teardown(runId: string, nextStatus: 'STOPPING'): Promise<void> {
+    await this.prisma.campusRun.updateMany({ where: { id: runId, status: { in: ['STARTING', 'RUNNING'] } }, data: { status: nextStatus } });
+    const run = await this.prisma.campusRun.findUnique({ where: { id: runId } });
+    if (run) this.realtime.emitToCampus(SOCKET_EVENTS.runUpdated, run);
+    const child = this.children.get(runId);
+    if (!child?.pid) return;
+    try { process.kill(-child.pid, 'SIGTERM'); } catch { /* already gone */ }
+    setTimeout(() => {
+      if (this.children.has(runId) && child.pid) {
+        try { process.kill(-child.pid, 'SIGKILL'); } catch { /* gone */ }
+      }
+    }, KILL_GRACE_MS);
+  }
+
+  /** Cancels QUEUED/STARTING/RUNNING. QUEUED has no child, so finalize directly; an
+   * active run goes through teardown() and its close handler resolves STOPPED once the
+   * child actually exits. finalize()'s own status guard is what keeps this idempotent
+   * against a natural completion racing the stop (see finalize's comment). */
   async stop(runId: string): Promise<CampusRun> {
     this.assertLoopback();
     const run = await this.prisma.campusRun.findUnique({ where: { id: runId } });
     if (!run) throw new NotFoundException(`Run ${runId} not found`);
-    if (run.status !== 'RUNNING') throw new ConflictException('run is not running');
+    if (!['QUEUED', 'STARTING', 'RUNNING'].includes(run.status)) throw new ConflictException('run is not stoppable');
 
-    const child = this.children.get(runId);
-    if (child) child.kill('SIGTERM');
-    this.children.delete(runId);
-    // If the handle is gone (API restarted since spawn) the process is orphaned; the row
-    // is still resolved so the UI never shows a phantom RUNNING run (documented caveat).
-    const stopped = await this.prisma.campusRun.update({
-      where: { id: runId },
-      data: { status: 'STOPPED', finishedAt: new Date() },
-    });
-    this.realtime.emitToCampus(SOCKET_EVENTS.runFinished, stopped);
-    return stopped;
+    if (run.status === 'QUEUED') {
+      return this.finalizeStopped(runId);
+    }
+    await this.teardown(runId, 'STOPPING');
+    // if the child is already gone (orphaned after restart), resolve the row directly
+    if (!this.children.get(runId)?.pid) return this.finalizeStopped(runId);
+    return this.prisma.campusRun.findUnique({ where: { id: runId } }) as Promise<CampusRun>;
+  }
+
+  private async finalizeStopped(runId: string): Promise<CampusRun> {
+    await this.finalize(runId, { status: 'STOPPED', resultText: 'stopped' });
+    return this.prisma.campusRun.findUnique({ where: { id: runId } }) as Promise<CampusRun>;
   }
 
   async listForProject(projectId: string): Promise<CampusRun[]> {

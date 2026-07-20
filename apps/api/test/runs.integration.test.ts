@@ -217,4 +217,52 @@ describe('runs (integration)', () => {
     expect(run.permissionMode).toBe('plan');
     expect(run.model).toBe('opus');
   });
+
+  it('stops a running run via process-group SIGTERM', async () => {
+    process.env.STUB_SLEEP = '30';
+    const project = await makeProject('stop');
+    const res = await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'long' });
+    // wait until it is actually RUNNING
+    for (let i = 0; i < 50; i++) {
+      const r = await prisma.campusRun.findUnique({ where: { id: res.body.id } });
+      if (r?.status === 'RUNNING') break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    const stopped = await request(app.getHttpServer()).post(`/api/runs/${res.body.id}/stop`).send();
+    expect(stopped.status).toBe(201);
+    const done = await waitForTerminal(res.body.id, 15000);
+    expect(done.status).toBe('STOPPED');
+    delete process.env.STUB_SLEEP;
+  }, 20000);
+
+  it('cancels a QUEUED run without a child', async () => {
+    process.env.STUB_SLEEP = '5';
+    const project = await makeProject('cancelq');
+    await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'holder' });
+    const q = await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'waiting' });
+    const stopped = await request(app.getHttpServer()).post(`/api/runs/${q.body.id}/stop`).send();
+    expect(stopped.status).toBe(201);
+    const row = await prisma.campusRun.findUnique({ where: { id: q.body.id } });
+    expect(row!.status).toBe('STOPPED');
+    delete process.env.STUB_SLEEP;
+  }, 20000);
+
+  it('times out a run and marks it TIMED_OUT', async () => {
+    process.env.STUB_SLEEP = '10';
+    process.env.RUN_TIMEOUT_MS = '500';
+    // fresh app so the new timeout is read
+    const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const app2 = mod.createNestApplication();
+    await app2.init();
+    try {
+      const project = await makeProject('timeout');
+      const res = await request(app2.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'slow' });
+      const done = await waitForTerminal(res.body.id, 15000);
+      expect(done.status).toBe('TIMED_OUT');
+    } finally {
+      await app2.close();
+      delete process.env.STUB_SLEEP;
+      delete process.env.RUN_TIMEOUT_MS;
+    }
+  }, 20000);
 });
