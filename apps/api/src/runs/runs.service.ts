@@ -130,7 +130,12 @@ export class RunsService implements OnModuleInit, OnModuleDestroy {
         void this.bumpSkipped(run.id);
         return;
       }
-      if (parsed.type === 'system' && !run.sessionId) {
+      if (parsed.type === 'system') {
+        // Unconditional: a continue row is created with the PARENT's sessionId (so launch()
+        // above can --resume it), so gating this on "row has none" would skip capture for
+        // every continue forever. Overwriting here with THIS run's own init session_id means
+        // the next continue resumes the latest turn, not the root's now-stale id -- correct
+        // whether or not `claude --resume` mints a new session id per resume (a no-op if not).
         const sid = extractSessionId(parsed.payload);
         if (sid) void this.setSessionId(run.id, sid);
       }

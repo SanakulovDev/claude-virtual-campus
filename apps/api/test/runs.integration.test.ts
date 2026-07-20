@@ -12,13 +12,21 @@ import { RunsService } from '../src/runs/runs.service';
 /** Stub claude: reads the prompt from stdin (proving it is never on argv), echoes the
  * DATABASE_URL it sees inside a JSON event (proving the child never inherits it), and
  * emits stream-json: an init system event with a session_id, an assistant line, then a
- * result. Sleeps when STUB_SLEEP is set. Fails (is_error result + exit 3) when the prompt
- * contains fail-me. Emits a secret-shaped token in the result text when the prompt
- * contains leak-secret (proves resultText is redacted before persist/broadcast). */
+ * result. The session id it reports depends on whether IT was invoked with --resume: a
+ * fresh run gets 'sess-root', a resumed one gets 'sess-resumed' -- this is what makes the
+ * continue-of-a-continue session capture (Fix 2) provable, since a stub that always echoed
+ * back the same session id could never distinguish "captured the parent's stale id" from
+ * "captured its own". Sleeps when STUB_SLEEP is set. Fails (is_error result + exit 3) when
+ * the prompt contains fail-me. Emits a secret-shaped token in the result text when the
+ * prompt contains leak-secret (proves resultText is redacted before persist/broadcast). */
 const STUB = `#!/bin/sh
 PROMPT=$(cat)
 echo "$@" >> "\${STUB_ARGS_FILE:-/dev/null}"
-echo "{\\"type\\":\\"system\\",\\"subtype\\":\\"init\\",\\"session_id\\":\\"sess-stub\\"}"
+case "$*" in
+  *--resume*) SID=sess-resumed ;;
+  *) SID=sess-root ;;
+esac
+echo "{\\"type\\":\\"system\\",\\"subtype\\":\\"init\\",\\"session_id\\":\\"$SID\\"}"
 echo "{\\"type\\":\\"assistant\\",\\"message\\":\\"db:[$DATABASE_URL]\\"}"
 echo "{\\"type\\":\\"assistant\\",\\"message\\":\\"$PROMPT\\"}"
 if [ -n "$STUB_SLEEP" ]; then sleep "$STUB_SLEEP"; fi
@@ -27,10 +35,10 @@ if echo "$PROMPT" | grep -q fail-me; then
   exit 3
 fi
 if echo "$PROMPT" | grep -q leak-secret; then
-  echo "{\\"type\\":\\"result\\",\\"is_error\\":false,\\"result\\":\\"here: sk-abcdefghij0123456789extra\\",\\"total_cost_usd\\":0.01,\\"duration_ms\\":5,\\"session_id\\":\\"sess-stub\\",\\"usage\\":{\\"input_tokens\\":3,\\"output_tokens\\":4}}"
+  echo "{\\"type\\":\\"result\\",\\"is_error\\":false,\\"result\\":\\"here: sk-abcdefghij0123456789extra\\",\\"total_cost_usd\\":0.01,\\"duration_ms\\":5,\\"session_id\\":\\"$SID\\",\\"usage\\":{\\"input_tokens\\":3,\\"output_tokens\\":4}}"
   exit 0
 fi
-echo "{\\"type\\":\\"result\\",\\"is_error\\":false,\\"result\\":\\"stub-result: $PROMPT\\",\\"total_cost_usd\\":0.01,\\"duration_ms\\":5,\\"session_id\\":\\"sess-stub\\",\\"usage\\":{\\"input_tokens\\":3,\\"output_tokens\\":4}}"
+echo "{\\"type\\":\\"result\\",\\"is_error\\":false,\\"result\\":\\"stub-result: $PROMPT\\",\\"total_cost_usd\\":0.01,\\"duration_ms\\":5,\\"session_id\\":\\"$SID\\",\\"usage\\":{\\"input_tokens\\":3,\\"output_tokens\\":4}}"
 `;
 
 describe('runs (integration)', () => {
@@ -86,7 +94,7 @@ describe('runs (integration)', () => {
     expect(res.status).toBe(201);
     const run = await waitForTerminal(res.body.id);
     expect(run.status).toBe('COMPLETED');
-    expect(run.sessionId).toBe('sess-stub');
+    expect(run.sessionId).toBe('sess-root'); // fresh run, no --resume in argv
     expect(run.resultText).toContain('hello world');
     expect(run.costUsd?.toString()).toBe('0.01');
     expect(run.inputTokens).toBe(3);
@@ -288,7 +296,7 @@ describe('runs (integration)', () => {
     const project = await makeProject('continue');
     const first = await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'start', model: 'opus', permissionMode: 'plan' });
     const firstDone = await waitForTerminal(first.body.id);
-    expect(firstDone.sessionId).toBe('sess-stub');
+    expect(firstDone.sessionId).toBe('sess-root'); // fresh run, no --resume in argv
 
     const cont = await request(app.getHttpServer()).post(`/api/runs/${first.body.id}/continue`).send({ prompt: 'and then?' });
     expect(cont.status).toBe(201);
@@ -299,8 +307,43 @@ describe('runs (integration)', () => {
     expect(contDone.permissionMode).toBe('plan');  // inherited
 
     const argsLog = (await import('node:fs')).readFileSync(argsFile, 'utf8');
-    expect(argsLog).toContain('--resume sess-stub');
+    expect(argsLog).toContain('--resume sess-root'); // launch() uses the parent's session AT LAUNCH
     delete process.env.STUB_ARGS_FILE;
+  });
+
+  it('captures a continue row\'s OWN session id instead of leaving the inherited parent id, so the next continue resumes the latest turn', async () => {
+    const argsFile = path.join(await mkdtemp(path.join(tmpdir(), 'campus-args-')), 'args.log');
+    process.env.STUB_ARGS_FILE = argsFile;
+    const project = await makeProject('continue-session');
+
+    const root = await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'start' });
+    const rootDone = await waitForTerminal(root.body.id);
+    expect(rootDone.sessionId).toBe('sess-root');
+
+    // The continue row is CREATED with the parent's sessionId (so launch() can --resume
+    // it), but the stub reports back 'sess-resumed' once it sees --resume on its own argv.
+    // Without Fix 2's unconditional capture, `!run.sessionId` is false for this row (it
+    // inherited 'sess-root' at creation) and the capture branch never runs -- the row would
+    // stay stuck on the root's now-stale id forever.
+    const cont = await request(app.getHttpServer()).post(`/api/runs/${root.body.id}/continue`).send({ prompt: 'and then?' });
+    const contDone = await waitForTerminal(cont.body.id);
+    expect(contDone.sessionId).toBe('sess-resumed');
+
+    // And the NEXT continue must resume the latest turn ('sess-resumed'), not the root.
+    const cont2 = await request(app.getHttpServer()).post(`/api/runs/${cont.body.id}/continue`).send({ prompt: 'once more?' });
+    await waitForTerminal(cont2.body.id);
+    const argsLog = (await import('node:fs')).readFileSync(argsFile, 'utf8');
+    expect(argsLog).toContain('--resume sess-resumed');
+    delete process.env.STUB_ARGS_FILE;
+  });
+
+  it('rejects continuing a run that has no session to resume with 409', async () => {
+    const project = await makeProject('continue-409');
+    const parent = await prisma.campusRun.create({
+      data: { projectId: project.id, prompt: 'no session ever captured', status: 'FAILED', sessionId: null },
+    });
+    const res = await request(app.getHttpServer()).post(`/api/runs/${parent.id}/continue`).send({ prompt: 'try anyway' });
+    expect(res.status).toBe(409);
   });
 
   it('paginates run events by seq cursor', async () => {
