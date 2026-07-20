@@ -9,11 +9,13 @@ import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { isLoopbackHost, resolveApiHost } from '../config/api-host';
 import { buildRunEnv } from './run-env';
 import { parseStreamLine, clampPayload, extractOutcome, extractSessionId, type RunOutcome } from './stream-parser';
+import { selectClaimable } from './scheduler';
 
 const RUN_TIMEOUT_MS = Number(process.env.RUN_TIMEOUT_MS ?? 30 * 60 * 1000);
 const RUN_EVENT_MAX_BYTES = Number(process.env.RUN_EVENT_MAX_BYTES ?? 32 * 1024);
 const STDERR_CAP = 16 * 1024;
 const GLOBAL_RUN_LIMIT = 3;
+const QUEUE_LIMIT = 10;
 
 @Injectable()
 export class RunsService implements OnModuleInit {
@@ -46,13 +48,16 @@ export class RunsService implements OnModuleInit {
     this.assertLoopback();
     const project = await this.prisma.project.findUnique({ where: { id: projectId } });
     if (!project) throw new NotFoundException(`Project ${projectId} not found`);
+    const queued = await this.prisma.campusRun.count({ where: { projectId, status: 'QUEUED' } });
+    if (queued >= QUEUE_LIMIT) throw new HttpException('queue is full for this project', 429);
+
     const run = await this.prisma.campusRun.create({
-      data: { projectId, prompt, status: 'STARTING', startedAt: new Date(), permissionMode: options.permissionMode ?? 'default', model: options.model ?? null },
+      data: { projectId, prompt, status: 'QUEUED', permissionMode: options.permissionMode ?? 'default', model: options.model ?? null },
     });
     await this.prisma.campusRun.update({ where: { id: run.id }, data: { conversationId: run.id } });
-    this.launch(run, project.rootPath);
     this.realtime.emitToCampus(SOCKET_EVENTS.runStarted, run);
-    return run;
+    await this.schedule();
+    return this.prisma.campusRun.findUnique({ where: { id: run.id } }) as Promise<CampusRun>;
   }
 
   /** spawn with an args array + stdin prompt: the prompt is data, never argv, never shell. */
@@ -173,8 +178,43 @@ export class RunsService implements OnModuleInit {
     await this.schedule(); // fill the freed slot (Task 6)
   }
 
-  private async schedule() {
-    /* implemented in Task 6 */
+  private isScheduling = false;
+  private scheduleAgain = false;
+
+  /** The ONLY place a run is spawned. Serialized in-process; correctness is the guarded
+   * QUEUED->STARTING claim, which is a no-op for any row a concurrent pass already took. */
+  private async schedule(): Promise<void> {
+    if (this.isScheduling) {
+      this.scheduleAgain = true;
+      return;
+    }
+    this.isScheduling = true;
+    try {
+      do {
+        this.scheduleAgain = false;
+        const claimed = await this.prisma.$transaction(async (tx) => {
+          const inFlight = await tx.campusRun.findMany({ where: { status: { in: ['RUNNING', 'STARTING'] } }, select: { projectId: true } });
+          const freeSlots = GLOBAL_RUN_LIMIT - inFlight.length;
+          if (freeSlots <= 0) return [];
+          const queued = await tx.campusRun.findMany({ where: { status: 'QUEUED' }, orderBy: { createdAt: 'asc' }, select: { id: true, projectId: true, createdAt: true } });
+          const ids = selectClaimable({ queued, runningProjectIds: new Set(inFlight.map((r) => r.projectId)), freeSlots });
+          if (ids.length === 0) return [];
+          await tx.campusRun.updateMany({ where: { id: { in: ids }, status: 'QUEUED' }, data: { status: 'STARTING', startedAt: new Date() } });
+          return tx.campusRun.findMany({ where: { id: { in: ids }, status: 'STARTING' } });
+        });
+        for (const run of claimed) {
+          const project = await this.prisma.project.findUnique({ where: { id: run.projectId } });
+          if (!project) {
+            await this.finalize(run.id, { status: 'FAILED', resultText: 'project missing' });
+            continue;
+          }
+          this.realtime.emitToCampus(SOCKET_EVENTS.runUpdated, run);
+          this.launch(run, project.rootPath);
+        }
+      } while (this.scheduleAgain);
+    } finally {
+      this.isScheduling = false;
+    }
   }
 
   async stop(runId: string): Promise<CampusRun> {
@@ -200,7 +240,7 @@ export class RunsService implements OnModuleInit {
     this.assertLoopback();
     return this.prisma.campusRun.findMany({
       where: { projectId },
-      orderBy: { startedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
       take: 20,
     });
   }

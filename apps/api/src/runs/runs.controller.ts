@@ -2,7 +2,11 @@ import { BadRequestException, Body, Controller, Get, Param, Post } from '@nestjs
 import { z } from 'zod';
 import { RunsService } from './runs.service';
 
-const startRunSchema = z.object({ prompt: z.string().trim().min(1).max(10_000) });
+const startRunSchema = z.object({
+  prompt: z.string().trim().min(1).max(10_000),
+  permissionMode: z.enum(['default', 'acceptEdits', 'plan']).optional(),
+  model: z.enum(['sonnet', 'opus', 'haiku']).optional(),
+});
 
 @Controller()
 export class RunsController {
@@ -12,7 +16,8 @@ export class RunsController {
   start(@Param('projectId') projectId: string, @Body() body: unknown) {
     const parsed = startRunSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues);
-    return this.runs.start(projectId, parsed.data.prompt);
+    const { prompt, ...options } = parsed.data;
+    return this.runs.start(projectId, prompt, options);
   }
 
   @Get('api/projects/:projectId/runs')

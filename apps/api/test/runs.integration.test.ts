@@ -52,6 +52,7 @@ describe('runs (integration)', () => {
     await writeFile(stubPath, STUB);
     await chmod(stubPath, 0o755);
     process.env.CLAUDE_BIN = stubPath;
+    process.env.RUN_ENV_ALLOWLIST = 'STUB_SLEEP'; // let the stub's sleep knob reach the child env
     delete process.env.STUB_SLEEP;
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -63,6 +64,7 @@ describe('runs (integration)', () => {
     await app.close();
     await prisma.$disconnect();
     delete process.env.CLAUDE_BIN;
+    delete process.env.RUN_ENV_ALLOWLIST;
     delete process.env.STUB_SLEEP;
     await Promise.all(cleanupDirs.map((d) => rm(d, { recursive: true, force: true })));
   });
@@ -174,5 +176,45 @@ describe('runs (integration)', () => {
     await expect(
       prisma.runEvent.create({ data: { runId: run.id, seq: 0, type: 'assistant', payload: {} } }),
     ).rejects.toThrow();
+  });
+
+  it('queues a second run for the same project, then runs it after the first finishes', async () => {
+    process.env.STUB_SLEEP = '1';
+    try {
+      const project = await makeProject('queue');
+      const a = await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'first' });
+      const b = await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'second' });
+      expect(a.status).toBe(201);
+      expect(b.status).toBe(201);
+      const bFresh = await prisma.campusRun.findUnique({ where: { id: b.body.id } });
+      expect(['QUEUED', 'STARTING']).toContain(bFresh!.status); // not RUNNING while A holds the project
+      const bDone = await waitForTerminal(b.body.id, 20000);
+      expect(bDone.status).toBe('COMPLETED');
+    } finally {
+      delete process.env.STUB_SLEEP;
+    }
+  });
+
+  it('rejects past the 10-deep per-project queue cap', async () => {
+    process.env.STUB_SLEEP = '3';
+    try {
+      const project = await makeProject('cap');
+      for (let i = 0; i < 11; i++) {
+        await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: `r${i}` });
+      }
+      const over = await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'too-many' });
+      expect(over.status).toBe(429);
+    } finally {
+      delete process.env.STUB_SLEEP;
+    }
+  }, 30000);
+
+  it('accepts a per-run permissionMode and model', async () => {
+    const project = await makeProject('opts');
+    const res = await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'x', permissionMode: 'plan', model: 'opus' });
+    expect(res.status).toBe(201);
+    const run = await waitForTerminal(res.body.id);
+    expect(run.permissionMode).toBe('plan');
+    expect(run.model).toBe('opus');
   });
 });
