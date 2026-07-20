@@ -315,6 +315,14 @@ describe('runs (integration)', () => {
     expect(after0.body.every((e: { seq: number }) => e.seq > 0)).toBe(true);
   });
 
+  it('rejects non-numeric after/take on the run events endpoint with 400, not a 500', async () => {
+    const project = await makeProject('events-bad-query');
+    const res = await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'events please' });
+    const run = await waitForTerminal(res.body.id);
+    await request(app.getHttpServer()).get(`/api/runs/${run.id}/events?after=abc`).expect(400);
+    await request(app.getHttpServer()).get(`/api/runs/${run.id}/events?take=xyz`).expect(400);
+  });
+
   it('returns the whole conversation thread in order', async () => {
     const project = await makeProject('thread');
     const first = await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'one' });

@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
+import { parseIntParam } from '../common/parse-int-param';
 import { RunsService } from './runs.service';
 
 const startRunSchema = z.object({
@@ -46,7 +47,7 @@ export class RunsController {
 
   @Get('api/runs/:runId/events')
   events(@Param('runId') runId: string, @Query('after') after?: string, @Query('take') take?: string) {
-    return this.runs.listEvents(runId, after === undefined ? undefined : Number(after), take ? Number(take) : 200);
+    return this.runs.listEvents(runId, parseIntParam(after, undefined), parseIntParam(take, 200) ?? 200);
   }
 
   @Get('api/runs/:runId/thread')

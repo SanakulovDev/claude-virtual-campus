@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import { parseIntParam } from '../common/parse-int-param';
 import { AgentsService } from './agents.service';
 
 @Controller('api/agents')
@@ -18,6 +19,6 @@ export class AgentsController {
 
   @Get(':agentId/events')
   events(@Param('agentId') agentId: string, @Query('take') take?: string) {
-    return this.agents.listEvents(agentId, take ? Number(take) : 100);
+    return this.agents.listEvents(agentId, parseIntParam(take, 100) ?? 100);
   }
 }

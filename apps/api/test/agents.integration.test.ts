@@ -157,4 +157,14 @@ describe('Agent identities (integration)', () => {
     const receivedTimes = res.body.map((e: { receivedAt: string }) => new Date(e.receivedAt).getTime());
     expect(receivedTimes).toEqual([...receivedTimes].sort((a, b) => b - a)); // newest first
   });
+
+  it('rejects a non-numeric take on the agent events endpoint with 400, not a 500', async () => {
+    const dir = await gitFixture();
+    cleanupDirs.push(dir);
+    const sessionId = randomUUID();
+    await send(dir, sessionId, { hook_event_name: 'SessionStart' });
+    const project = await getProject(dir);
+    const main = project.agents.find((a: { externalAgentId: string }) => a.externalAgentId === 'main-claude');
+    await http().get(`/api/agents/${main.id}/events?take=abc`).expect(400);
+  });
 });
