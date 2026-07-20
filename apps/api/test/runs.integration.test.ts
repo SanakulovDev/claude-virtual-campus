@@ -265,4 +265,19 @@ describe('runs (integration)', () => {
       delete process.env.RUN_TIMEOUT_MS;
     }
   }, 20000);
+
+  it('never re-finalizes a run that already reached a terminal status (stop racing a natural completion)', async () => {
+    const project = await makeProject('idempotency');
+    const run = await prisma.campusRun.create({ data: { projectId: project.id, prompt: 'x', status: 'RUNNING' } });
+    const svc = app.get(RunsService) as unknown as { finalize: (id: string, o: Record<string, unknown>) => Promise<void> };
+    // The child's close handler wins the race and finalizes COMPLETED first...
+    await svc.finalize(run.id, { status: 'COMPLETED', resultText: 'done' });
+    // ...then a stop() arriving a moment later must not clobber it back to STOPPED: its
+    // guarded updateMany (status must still be STARTING/RUNNING/STOPPING/QUEUED) matches
+    // 0 rows once the row is COMPLETED, so this call is a no-op.
+    await svc.finalize(run.id, { status: 'STOPPED', resultText: 'stopped' });
+    const row = await prisma.campusRun.findUnique({ where: { id: run.id } });
+    expect(row!.status).toBe('COMPLETED'); // not clobbered
+    expect(row!.resultText).toBe('done');
+  });
 });

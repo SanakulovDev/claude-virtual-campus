@@ -235,12 +235,20 @@ export class RunsService implements OnModuleInit, OnModuleDestroy {
         });
         for (const run of claimed) {
           const project = await this.prisma.project.findUnique({ where: { id: run.projectId } });
+          const fresh = await this.prisma.campusRun.findUnique({ where: { id: run.id }, select: { status: true } });
           if (!project) {
             await this.finalize(run.id, { status: 'FAILED', resultText: 'project missing' });
             continue;
           }
+          // ponytail: single-process assumption. Correctness here is "no await between
+          // this status re-read and launch()" -- Node can't interleave a concurrent
+          // stop() in that gap, so once STARTING is confirmed the child is always
+          // tracked and killable. Multi-process would need a real cross-process lock
+          // (e.g. a Postgres advisory lock) shared between stop() and schedule() instead
+          // of this in-memory ordering guarantee.
+          if (fresh?.status !== 'STARTING') continue; // a concurrent stop() finalized it during the gap above
           this.realtime.emitToCampus(SOCKET_EVENTS.runUpdated, run);
-          this.launch(run, project.rootPath);
+          this.launch(run, project.rootPath); // synchronous -- no await between the check above and here
         }
       } while (this.scheduleAgain);
     } finally {
@@ -264,10 +272,12 @@ export class RunsService implements OnModuleInit, OnModuleDestroy {
     }, KILL_GRACE_MS);
   }
 
-  /** Cancels QUEUED/STARTING/RUNNING. QUEUED has no child, so finalize directly; an
+  /** Cancels QUEUED/STARTING/RUNNING. QUEUED has no child, so it's claimed straight to
+   * STOPPED with its own atomic guard (not routed through finalize -- see below); an
    * active run goes through teardown() and its close handler resolves STOPPED once the
-   * child actually exits. finalize()'s own status guard is what keeps this idempotent
-   * against a natural completion racing the stop (see finalize's comment). */
+   * child actually exits. finalize()'s own status guard is what keeps the active-run
+   * path idempotent against a natural completion racing the stop (see finalize's
+   * comment). */
   async stop(runId: string): Promise<CampusRun> {
     this.assertLoopback();
     const run = await this.prisma.campusRun.findUnique({ where: { id: runId } });
@@ -275,7 +285,22 @@ export class RunsService implements OnModuleInit, OnModuleDestroy {
     if (!['QUEUED', 'STARTING', 'RUNNING'].includes(run.status)) throw new ConflictException('run is not stoppable');
 
     if (run.status === 'QUEUED') {
-      return this.finalizeStopped(runId);
+      // Atomic claim, not stale-read-then-act: only whoever flips QUEUED->STOPPED here
+      // may treat this row as cancelled. If 0 rows match, schedule() won the race and
+      // already claimed it (QUEUED->STARTING) between our read above and this update --
+      // re-enter stop() so the now-STARTING row goes through the real teardown path
+      // instead of being finalized STOPPED with its just-spawned child never killed.
+      const res = await this.prisma.campusRun.updateMany({
+        where: { id: runId, status: 'QUEUED' },
+        data: { status: 'STOPPED', resultText: 'stopped', finishedAt: new Date() },
+      });
+      if (res.count === 0) return this.stop(runId);
+      const stopped = await this.prisma.campusRun.findUnique({ where: { id: runId } });
+      if (stopped) {
+        this.realtime.emitToCampus(SOCKET_EVENTS.runFinished, stopped);
+        this.realtime.emitToCampus(SOCKET_EVENTS.runUpdated, stopped);
+      }
+      return stopped!;
     }
     await this.teardown(runId, 'STOPPING');
     // if the child is already gone (orphaned after restart), resolve the row directly
