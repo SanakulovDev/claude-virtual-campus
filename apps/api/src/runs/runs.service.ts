@@ -88,7 +88,10 @@ export class RunsService implements OnModuleInit {
         const sid = extractSessionId(parsed.payload);
         if (sid) void this.setSessionId(run.id, sid);
       }
-      if (parsed.type === 'result') outcome = extractOutcome(parsed.payload);
+      if (parsed.type === 'result') {
+        outcome = extractOutcome(parsed.payload);
+        if (outcome.resultText) outcome.resultText = this.redactText(outcome.resultText);
+      }
       void this.persistEvent(run.id, parsed.type, parsed.payload);
       void this.markRunning(run.id);
     });
@@ -97,7 +100,7 @@ export class RunsService implements OnModuleInit {
     child.on('close', (code) => {
       const timedOut = this.timedOut.delete(run.id);
       const status = timedOut ? 'TIMED_OUT' : outcome?.status ?? (code === 0 ? 'COMPLETED' : 'FAILED');
-      const resultText = outcome?.resultText ?? (status === 'COMPLETED' ? '' : this.redactStderr(stderr) || `exit ${code}`);
+      const resultText = outcome?.resultText ?? (status === 'COMPLETED' ? '' : this.redactText(stderr.trim()) || `exit ${code}`);
       void this.finalize(run.id, { ...(outcome ?? {}), status, resultText, exitCode: code ?? null });
     });
   }
@@ -119,10 +122,11 @@ export class RunsService implements OnModuleInit {
     await this.prisma.campusRun.update({ where: { id: runId }, data: { sessionId } }).catch(() => undefined);
   }
 
-  /** stderr can echo secrets/tracebacks -- redact with the canonical patterns before it
-   * becomes resultText. Reuses redactSensitiveData (no second set of regexes to drift). */
-  private redactStderr(s: string): string {
-    return (redactSensitiveData({ v: s.trim() }) as { v?: string }).v ?? '';
+  /** stderr, and the model's own result text, can echo secrets -- redact with the canonical
+   * patterns before either becomes resultText (persisted + broadcast). Reuses
+   * redactSensitiveData (no second set of regexes to drift). */
+  private redactText(s: string): string {
+    return redactSensitiveData(s) as string;
   }
 
   /** STARTING -> RUNNING on first real output; guarded so it fires at most once. */

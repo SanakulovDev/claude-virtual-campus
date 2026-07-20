@@ -13,7 +13,8 @@ import { RunsService } from '../src/runs/runs.service';
  * DATABASE_URL it sees inside a JSON event (proving the child never inherits it), and
  * emits stream-json: an init system event with a session_id, an assistant line, then a
  * result. Sleeps when STUB_SLEEP is set. Fails (is_error result + exit 3) when the prompt
- * contains fail-me. */
+ * contains fail-me. Emits a secret-shaped token in the result text when the prompt
+ * contains leak-secret (proves resultText is redacted before persist/broadcast). */
 const STUB = `#!/bin/sh
 PROMPT=$(cat)
 echo "{\\"type\\":\\"system\\",\\"subtype\\":\\"init\\",\\"session_id\\":\\"sess-stub\\"}"
@@ -23,6 +24,10 @@ if [ -n "$STUB_SLEEP" ]; then sleep "$STUB_SLEEP"; fi
 if echo "$PROMPT" | grep -q fail-me; then
   echo "{\\"type\\":\\"result\\",\\"is_error\\":true,\\"result\\":\\"boom\\"}"
   exit 3
+fi
+if echo "$PROMPT" | grep -q leak-secret; then
+  echo "{\\"type\\":\\"result\\",\\"is_error\\":false,\\"result\\":\\"here: sk-abcdefghij0123456789extra\\",\\"total_cost_usd\\":0.01,\\"duration_ms\\":5,\\"session_id\\":\\"sess-stub\\",\\"usage\\":{\\"input_tokens\\":3,\\"output_tokens\\":4}}"
+  exit 0
 fi
 echo "{\\"type\\":\\"result\\",\\"is_error\\":false,\\"result\\":\\"stub-result: $PROMPT\\",\\"total_cost_usd\\":0.01,\\"duration_ms\\":5,\\"session_id\\":\\"sess-stub\\",\\"usage\\":{\\"input_tokens\\":3,\\"output_tokens\\":4}}"
 `;
@@ -97,6 +102,15 @@ describe('runs (integration)', () => {
     const run = await waitForTerminal(res.body.id);
     expect(run.status).toBe('FAILED');
     expect(run.resultText).toContain('boom');
+  });
+
+  it('redacts a secret-shaped token in the model result text before persisting', async () => {
+    const project = await makeProject('leak');
+    const res = await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'please leak-secret' });
+    const run = await waitForTerminal(res.body.id);
+    expect(run.status).toBe('COMPLETED');
+    expect(run.resultText).toContain('[REDACTED]');
+    expect(run.resultText).not.toContain('sk-abcdefghij0123456789extra');
   });
 
   it('rejects blank and oversized prompts', async () => {
