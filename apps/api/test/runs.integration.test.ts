@@ -193,4 +193,13 @@ describe('runs (integration)', () => {
       delete process.env.API_HOST;
     }
   });
+
+  it('enforces unique (runId, seq) on run events', async () => {
+    const project = await makeProject('uniqseq');
+    const run = await prisma.campusRun.create({ data: { projectId: project.id, prompt: 'x' } });
+    await prisma.runEvent.create({ data: { runId: run.id, seq: 0, type: 'system', payload: {} } });
+    await expect(
+      prisma.runEvent.create({ data: { runId: run.id, seq: 0, type: 'assistant', payload: {} } }),
+    ).rejects.toThrow();
+  });
 });
