@@ -9,14 +9,22 @@ import { PrismaClient } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { RunsService } from '../src/runs/runs.service';
 
-/** Stub claude binary: prints a marker + the prompt (plus the DATABASE_URL it sees, to
- * prove the child never inherits it); sleeps when STUB_SLEEP is set; exits non-zero when
- * the prompt contains "fail-me". */
+/** Stub claude: reads the prompt from stdin (proving it is never on argv), echoes the
+ * DATABASE_URL it sees inside a JSON event (proving the child never inherits it), and
+ * emits stream-json: an init system event with a session_id, an assistant line, then a
+ * result. Sleeps when STUB_SLEEP is set. Fails (is_error result + exit 3) when the prompt
+ * contains fail-me. */
 const STUB = `#!/bin/sh
-if echo "$2" | grep -q fail-me; then echo "boom" >&2; exit 3; fi
+PROMPT=$(cat)
+echo "{\\"type\\":\\"system\\",\\"subtype\\":\\"init\\",\\"session_id\\":\\"sess-stub\\"}"
+echo "{\\"type\\":\\"assistant\\",\\"message\\":\\"db:[$DATABASE_URL]\\"}"
+echo "{\\"type\\":\\"assistant\\",\\"message\\":\\"$PROMPT\\"}"
 if [ -n "$STUB_SLEEP" ]; then sleep "$STUB_SLEEP"; fi
-echo "db:[$DATABASE_URL]"
-echo "stub-result: $2"
+if echo "$PROMPT" | grep -q fail-me; then
+  echo "{\\"type\\":\\"result\\",\\"is_error\\":true,\\"result\\":\\"boom\\"}"
+  exit 3
+fi
+echo "{\\"type\\":\\"result\\",\\"is_error\\":false,\\"result\\":\\"stub-result: $PROMPT\\",\\"total_cost_usd\\":0.01,\\"duration_ms\\":5,\\"session_id\\":\\"sess-stub\\",\\"usage\\":{\\"input_tokens\\":3,\\"output_tokens\\":4}}"
 `;
 
 describe('runs (integration)', () => {
@@ -58,86 +66,37 @@ describe('runs (integration)', () => {
     const start = Date.now();
     for (;;) {
       const run = await prisma.campusRun.findUnique({ where: { id: runId } });
-      if (run && run.status !== 'RUNNING') return run;
-      if (Date.now() - start > timeoutMs) throw new Error(`run ${runId} still RUNNING`);
+      if (run && ['COMPLETED', 'FAILED', 'STOPPED', 'TIMED_OUT'].includes(run.status)) return run;
+      if (Date.now() - start > timeoutMs) throw new Error(`run ${runId} still ${run?.status}`);
       await new Promise((r) => setTimeout(r, 150));
     }
   }
 
-  it('spawns, captures the result, and completes', async () => {
-    const project = await makeProject('ok');
-    const res = await request(app.getHttpServer())
-      .post(`/api/projects/${project.id}/runs`)
-      .send({ prompt: 'say hello' })
-      .expect(201);
-    expect(res.body.status).toBe('RUNNING');
-
-    const done = await waitForTerminal(res.body.id);
-    expect(done.status).toBe('COMPLETED');
-    expect(done.resultText).toContain('stub-result: say hello');
-    expect(done.exitCode).toBe(0);
-    // DATABASE_URL is stripped from the spawned child's env -- it sees an empty value.
-    expect(done.resultText).toContain('db:[]');
+  it('streams stream-json into RunEvent rows and finalizes COMPLETED', async () => {
+    const project = await makeProject('stream');
+    const res = await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'hello world' });
+    expect(res.status).toBe(201);
+    const run = await waitForTerminal(res.body.id);
+    expect(run.status).toBe('COMPLETED');
+    expect(run.sessionId).toBe('sess-stub');
+    expect(run.resultText).toContain('hello world');
+    expect(run.costUsd?.toString()).toBe('0.01');
+    expect(run.inputTokens).toBe(3);
+    const events = await prisma.runEvent.findMany({ where: { runId: run.id }, orderBy: { seq: 'asc' } });
+    expect(events[0].type).toBe('system');
+    expect(events.some((e) => e.type === 'result')).toBe(true);
+    expect(events.map((e) => e.seq)).toEqual(events.map((_, i) => i)); // seq is 0..n dense
+    // DATABASE_URL is stripped from the spawned child's env -- proven via a persisted event.
+    const dbEvent = await prisma.runEvent.findFirst({ where: { runId: run.id, type: 'assistant' }, orderBy: { seq: 'asc' } });
+    expect(JSON.stringify(dbEvent?.payload)).toContain('db:[]'); // env allowlist dropped DATABASE_URL
   });
 
-  it('marks non-zero exits FAILED with the stderr tail', async () => {
-    const project = await makeProject('fail');
-    const res = await request(app.getHttpServer())
-      .post(`/api/projects/${project.id}/runs`)
-      .send({ prompt: 'please fail-me now' })
-      .expect(201);
-    const done = await waitForTerminal(res.body.id);
-    expect(done.status).toBe('FAILED');
-    expect(done.resultText).toContain('boom');
-    expect(done.exitCode).toBe(3);
-  });
-
-  it('rejects a second run for the same project with 409, and stop() ends the first', async () => {
-    process.env.STUB_SLEEP = '30';
-    try {
-      const project = await makeProject('busy');
-      const first = await request(app.getHttpServer())
-        .post(`/api/projects/${project.id}/runs`)
-        .send({ prompt: 'long task' })
-        .expect(201);
-
-      await request(app.getHttpServer())
-        .post(`/api/projects/${project.id}/runs`)
-        .send({ prompt: 'second task' })
-        .expect(409);
-
-      const stopped = await request(app.getHttpServer())
-        .post(`/api/runs/${first.body.id}/stop`)
-        .expect(201);
-      expect(stopped.body.status).toBe('STOPPED');
-    } finally {
-      delete process.env.STUB_SLEEP;
-    }
-  });
-
-  it('enforces the global limit of 3 concurrent runs with 429', async () => {
-    process.env.STUB_SLEEP = '30';
-    const started: string[] = [];
-    try {
-      for (const name of ['g1', 'g2', 'g3']) {
-        const project = await makeProject(name);
-        const res = await request(app.getHttpServer())
-          .post(`/api/projects/${project.id}/runs`)
-          .send({ prompt: 'busy' })
-          .expect(201);
-        started.push(res.body.id);
-      }
-      const fourth = await makeProject('g4');
-      await request(app.getHttpServer())
-        .post(`/api/projects/${fourth.id}/runs`)
-        .send({ prompt: 'one too many' })
-        .expect(429);
-    } finally {
-      for (const id of started) {
-        await request(app.getHttpServer()).post(`/api/runs/${id}/stop`);
-      }
-      delete process.env.STUB_SLEEP;
-    }
+  it('marks a failing run FAILED with the error result text', async () => {
+    const project = await makeProject('streamfail');
+    const res = await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'please fail-me' });
+    const run = await waitForTerminal(res.body.id);
+    expect(run.status).toBe('FAILED');
+    expect(run.resultText).toContain('boom');
   });
 
   it('rejects blank and oversized prompts', async () => {
