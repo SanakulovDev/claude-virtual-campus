@@ -346,4 +346,21 @@ export class RunsService implements OnModuleInit, OnModuleDestroy {
       take: 20,
     });
   }
+
+  async listEvents(runId: string, after: number | undefined, take: number) {
+    this.assertLoopback();
+    return this.prisma.runEvent.findMany({
+      where: { runId, ...(after === undefined ? {} : { seq: { gt: after } }) },
+      orderBy: { seq: 'asc' },
+      take: Math.min(Math.max(take, 1), 1000),
+    });
+  }
+
+  async listThread(runId: string) {
+    this.assertLoopback();
+    const run = await this.prisma.campusRun.findUnique({ where: { id: runId } });
+    if (!run) throw new NotFoundException(`Run ${runId} not found`);
+    const conversationId = run.conversationId ?? run.id;
+    return this.prisma.campusRun.findMany({ where: { conversationId }, orderBy: { createdAt: 'asc' } });
+  }
 }

@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { RunsService } from './runs.service';
 
@@ -42,5 +42,15 @@ export class RunsController {
     if (!parsed.success) throw new BadRequestException(parsed.error.issues);
     const { prompt, ...overrides } = parsed.data;
     return this.runs.continue(runId, prompt, overrides);
+  }
+
+  @Get('api/runs/:runId/events')
+  events(@Param('runId') runId: string, @Query('after') after?: string, @Query('take') take?: string) {
+    return this.runs.listEvents(runId, after === undefined ? undefined : Number(after), take ? Number(take) : 200);
+  }
+
+  @Get('api/runs/:runId/thread')
+  thread(@Param('runId') runId: string) {
+    return this.runs.listThread(runId);
   }
 }

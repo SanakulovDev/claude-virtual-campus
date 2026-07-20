@@ -302,4 +302,27 @@ describe('runs (integration)', () => {
     expect(argsLog).toContain('--resume sess-stub');
     delete process.env.STUB_ARGS_FILE;
   });
+
+  it('paginates run events by seq cursor', async () => {
+    const project = await makeProject('events');
+    const res = await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'events please' });
+    const run = await waitForTerminal(res.body.id);
+    const all = await request(app.getHttpServer()).get(`/api/runs/${run.id}/events`);
+    expect(all.status).toBe(200);
+    expect(all.body.length).toBeGreaterThanOrEqual(3);
+    expect(all.body[0].seq).toBe(0);
+    const after0 = await request(app.getHttpServer()).get(`/api/runs/${run.id}/events?after=0`);
+    expect(after0.body.every((e: { seq: number }) => e.seq > 0)).toBe(true);
+  });
+
+  it('returns the whole conversation thread in order', async () => {
+    const project = await makeProject('thread');
+    const first = await request(app.getHttpServer()).post(`/api/projects/${project.id}/runs`).send({ prompt: 'one' });
+    await waitForTerminal(first.body.id);
+    const cont = await request(app.getHttpServer()).post(`/api/runs/${first.body.id}/continue`).send({ prompt: 'two' });
+    await waitForTerminal(cont.body.id);
+    const thread = await request(app.getHttpServer()).get(`/api/runs/${first.body.id}/thread`);
+    expect(thread.status).toBe(200);
+    expect(thread.body.map((r: { prompt: string }) => r.prompt)).toEqual(['one', 'two']);
+  });
 });
