@@ -191,4 +191,12 @@ export class AgentsService {
     if (!agent) throw new NotFoundException(`Agent ${id} not found`);
     return agent;
   }
+
+  async listEvents(agentId: string, take: number) {
+    return this.prisma.claudeEvent.findMany({
+      where: { agentId },
+      orderBy: { receivedAt: 'desc' }, // ClaudeEvent has no createdAt; receivedAt is the established "newest first" field (see projects.service.ts, realtime/bootstrap.ts)
+      take: Math.min(Math.max(take, 1), 500),
+    });
+  }
 }

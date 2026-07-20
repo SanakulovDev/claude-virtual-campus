@@ -239,20 +239,62 @@ model ActivitySnapshot {
 }
 
 enum RunStatus {
+  QUEUED
+  STARTING
   RUNNING
+  STOPPING
   COMPLETED
   FAILED
   STOPPED
+  TIMED_OUT
 }
 
 model CampusRun {
-  id         String    @id @default(cuid())
-  projectId  String
-  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  prompt     String
-  status     RunStatus @default(RUNNING)
-  resultText String?
-  exitCode   Int?
-  startedAt  DateTime  @default(now())
-  finishedAt DateTime?
+  id             String    @id @default(cuid())
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  prompt         String
+  status         RunStatus @default(QUEUED)
+
+  parentRunId    String?
+  parent         CampusRun?  @relation("RunThread", fields: [parentRunId], references: [id], onDelete: SetNull)
+  children       CampusRun[] @relation("RunThread")
+  conversationId String?
+
+  permissionMode String   @default("default")
+  model          String?
+  sessionId      String?
+
+  resultText          String?
+  exitCode            Int?
+  durationMs          Int?
+  costUsd             Decimal? @db.Decimal(10, 6)
+  inputTokens         Int?
+  outputTokens        Int?
+  cacheReadTokens     Int?
+  cacheCreationTokens Int?
+  usageJson           Json?
+  skippedLines        Int      @default(0)
+
+  createdAt      DateTime  @default(now())
+  startedAt      DateTime?
+  finishedAt     DateTime?
+
+  events         RunEvent[]
+
+  @@index([status, createdAt])
+  @@index([projectId, status])
+  @@index([conversationId])
+}
+
+model RunEvent {
+  id        String    @id @default(cuid())
+  runId     String
+  run       CampusRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  seq       Int
+  type      String
+  payload   Json
+  createdAt DateTime  @default(now())
+
+  @@unique([runId, seq])
 }

@@ -20,6 +20,8 @@ export const SOCKET_EVENTS = {
   eventReceived: 'event:received',
   runStarted: 'run:started',
   runFinished: 'run:finished',
+  runEvent: 'run:event',
+  runUpdated: 'run:updated',
 } as const;
 
 export function projectRoom(projectId: string): string {

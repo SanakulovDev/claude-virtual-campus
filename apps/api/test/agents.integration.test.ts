@@ -139,4 +139,32 @@ describe('Agent identities (integration)', () => {
     expect(planner.displayName).toBe('Ada');
     expect(planner.role).toBe('Chief Planner');
   });
+
+  it('returns an agent event history newest-first', async () => {
+    const dir = await gitFixture();
+    cleanupDirs.push(dir);
+    const sessionId = randomUUID();
+    await send(dir, sessionId, { hook_event_name: 'SessionStart' });
+    await send(dir, sessionId, { hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: { file_path: 'x.go' } });
+
+    const project = await getProject(dir);
+    const main = project.agents.find((a: { externalAgentId: string }) => a.externalAgentId === 'main-claude');
+
+    const res = await http().get(`/api/agents/${main.id}/events`).expect(200);
+    expect(res.body.length).toBeGreaterThanOrEqual(2);
+    expect(res.body.map((e: { hookEventName: string }) => e.hookEventName)).toContain('SessionStart');
+    expect(res.body.map((e: { hookEventName: string }) => e.hookEventName)).toContain('PreToolUse');
+    const receivedTimes = res.body.map((e: { receivedAt: string }) => new Date(e.receivedAt).getTime());
+    expect(receivedTimes).toEqual([...receivedTimes].sort((a, b) => b - a)); // newest first
+  });
+
+  it('rejects a non-numeric take on the agent events endpoint with 400, not a 500', async () => {
+    const dir = await gitFixture();
+    cleanupDirs.push(dir);
+    const sessionId = randomUUID();
+    await send(dir, sessionId, { hook_event_name: 'SessionStart' });
+    const project = await getProject(dir);
+    const main = project.agents.find((a: { externalAgentId: string }) => a.externalAgentId === 'main-claude');
+    await http().get(`/api/agents/${main.id}/events?take=abc`).expect(400);
+  });
 });
