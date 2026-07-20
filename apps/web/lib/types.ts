@@ -86,7 +86,7 @@ export interface RunRow {
   id: string;
   projectId: string;
   prompt: string;
-  status: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'STOPPED';
+  status: 'QUEUED' | 'STARTING' | 'RUNNING' | 'STOPPING' | 'COMPLETED' | 'FAILED' | 'STOPPED' | 'TIMED_OUT';
   resultText: string | null;
   exitCode: number | null;
   startedAt: string;

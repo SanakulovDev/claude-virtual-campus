@@ -4,7 +4,8 @@ import { useCampusStore } from '../../stores/campusStore';
 import { ProjectDock } from './ProjectDock';
 import { InspectorDrawer } from './InspectorDrawer';
 import { CampusTopBar } from './CampusTopBar';
-import type { ProjectRow } from '../../lib/types';
+import { RunPanel } from './RunPanel';
+import type { ProjectRow, RunRow } from '../../lib/types';
 
 function project(overrides: Partial<ProjectRow> = {}): ProjectRow {
   return {
@@ -24,12 +25,27 @@ function project(overrides: Partial<ProjectRow> = {}): ProjectRow {
   };
 }
 
+function run(overrides: Partial<RunRow> = {}): RunRow {
+  return {
+    id: 'r1',
+    projectId: 'p1',
+    prompt: 'do the thing',
+    status: 'QUEUED',
+    resultText: null,
+    exitCode: null,
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    ...overrides,
+  };
+}
+
 function reset() {
   useCampusStore.setState({
     connectionStatus: 'connected',
     projects: {},
     approvals: {},
     timeline: [],
+    runs: {},
     camera: { mode: 'campus', focusedProjectId: null, followedAgentId: null },
     selection: { selectedProjectId: null, selectedAgentId: null },
     ui: { dockCollapsed: false, inspectorOpen: false, timelineExpanded: false, developerDetails: false, ambientLifeEnabled: true, searchQuery: '' },
@@ -84,5 +100,39 @@ describe('CampusTopBar', () => {
     render(<CampusTopBar />);
     fireEvent.click(screen.getByText('Campus Overview'));
     expect(useCampusStore.getState().camera.mode).toBe('campus');
+  });
+});
+
+describe('RunPanel', () => {
+  it('renders a QUEUED run without throwing', () => {
+    useCampusStore.getState().setProjectRuns('p1', [run({ status: 'QUEUED' })]);
+    render(<RunPanel projectId="p1" />);
+    expect(screen.getByText('Queued')).toBeTruthy();
+  });
+
+  it('renders every backend run status, including ones the panel predates, without throwing', () => {
+    const statuses: RunRow['status'][] = [
+      'QUEUED',
+      'STARTING',
+      'RUNNING',
+      'STOPPING',
+      'COMPLETED',
+      'FAILED',
+      'STOPPED',
+      'TIMED_OUT',
+      'SOMETHING_NEW' as RunRow['status'], // an unrecognized future status must still render
+    ];
+    useCampusStore.getState().setProjectRuns(
+      'p1',
+      statuses.map((status, i) => run({ id: `r${i}`, status })),
+    );
+    render(<RunPanel projectId="p1" />);
+    expect(screen.getByText('SOMETHING_NEW')).toBeTruthy(); // unknown status falls back to its raw label
+  });
+
+  it('offers Stop for QUEUED and STARTING runs, not just RUNNING', () => {
+    useCampusStore.getState().setProjectRuns('p1', [run({ status: 'STARTING' })]);
+    render(<RunPanel projectId="p1" />);
+    expect(screen.getByText('Stop')).toBeTruthy();
   });
 });
