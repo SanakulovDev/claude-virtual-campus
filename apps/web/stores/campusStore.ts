@@ -79,7 +79,9 @@ export const useCampusStore = create<CampusStoreState>((set) => ({
   timeline: [],
   camera: { mode: 'campus', focusedProjectId: null, followedAgentId: null },
   selection: { selectedProjectId: null, selectedAgentId: null },
-  ui: { dockCollapsed: false, inspectorOpen: false, timelineExpanded: false, developerDetails: false, ambientLifeEnabled: true, searchQuery: '' },
+  // Ambient idle life defaults OFF: robots on standby hold their station instead of
+  // wandering. The top-bar toggle still turns it on for anyone who wants the cosmetics.
+  ui: { dockCollapsed: false, inspectorOpen: false, timelineExpanded: false, developerDetails: false, ambientLifeEnabled: false, searchQuery: '' },
   restingAgentIds: {},
 
   setConnectionStatus: (status) => set({ connectionStatus: status }),

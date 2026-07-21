@@ -3,7 +3,7 @@
 import { useCampusStore } from '../../stores/campusStore';
 import { selectProjectVisualState } from '../../selectors/project-status.selector';
 
-/** Bottom-centre campus summary. "Optimal" unless something needs a human (pending approval
+/** Bottom-centre campus summary. "Nominal" unless something needs a human (pending approval
  * or an agent in attention state) — honest, derived from real state, never decorative. */
 export function CampusStatusPill() {
   const projects = useCampusStore((s) => s.projects);
@@ -19,18 +19,18 @@ export function CampusStatusPill() {
 
   return (
     <div className="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
-      <div className="panel-solid flex items-center gap-3 rounded-full border border-slate-200/80 px-4 py-1.5 text-[12px] shadow-md">
-        <span className="text-slate-500">
-          Active Projects <span className="font-semibold text-slate-800 tabular-nums">{activeProjects}</span>
+      <div className="panel-solid flex items-center gap-3 rounded-md border border-white/10 px-4 py-1.5 font-mono text-[11px] shadow-lg">
+        <span className="text-slate-400">
+          Projects <span className="font-semibold text-slate-100 tabular-nums">{activeProjects}</span>
         </span>
-        <span className="text-slate-300">·</span>
-        <span className="text-slate-500">
-          Campus Agents <span className="font-semibold text-slate-800 tabular-nums">{totalAgents}</span>
+        <span className="text-slate-600">·</span>
+        <span className="text-slate-400">
+          Agents <span className="font-semibold text-slate-100 tabular-nums">{totalAgents}</span>
         </span>
-        <span className="text-slate-300">·</span>
-        <span className="flex items-center gap-1.5 font-medium" style={{ color: needsAttention ? '#c98a1e' : '#12a150' }}>
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: needsAttention ? '#c98a1e' : '#12a150' }} />
-          {needsAttention ? 'Needs Attention' : 'Optimal'}
+        <span className="text-slate-600">·</span>
+        <span className="flex items-center gap-1.5 font-medium uppercase tracking-wider" style={{ color: needsAttention ? '#f2b23c' : '#3ecf8e' }}>
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: needsAttention ? '#f2b23c' : '#3ecf8e' }} />
+          {needsAttention ? 'Needs attention' : 'Nominal'}
         </span>
       </div>
     </div>

@@ -30,6 +30,11 @@ services:
       CORS_ORIGIN: http://localhost:3200
     ports:
       - "4000:4000"
+    volumes:
+      # Host projects must be visible at their host paths: identity is resolved by running
+      # git in the event's cwd, so an invisible path mints a duplicate `path:` room for
+      # every git project. Writable so "+ Add project" can still install .claude/ hooks.
+      - ${HOME}:${HOME}
     depends_on:
       postgres:
         condition: service_healthy

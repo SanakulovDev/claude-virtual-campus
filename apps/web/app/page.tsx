@@ -17,7 +17,7 @@ import { selectAgentVisualState } from '../selectors/visual-state.selector';
 
 const CampusScene = dynamic(() => import('../components/campus/CampusScene').then((m) => m.CampusScene), {
   ssr: false,
-  loading: () => <div className="grid h-full place-items-center text-sm text-slate-500">Loading campus…</div>,
+  loading: () => <div className="grid h-full place-items-center font-mono text-sm text-slate-500">Loading lab…</div>,
 });
 
 export default function Page() {
@@ -42,7 +42,7 @@ export default function Page() {
   }, [cameraMode, closeInspector, stopFollowing]);
 
   return (
-    <div className="flex h-screen flex-col bg-[#eef1f5]">
+    <div className="flex h-screen flex-col bg-ink">
       {!kiosk && <CampusTopBar />}
       <div className="flex min-h-0 flex-1">
         {!kiosk && <ProjectDock />}

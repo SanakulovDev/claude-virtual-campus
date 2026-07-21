@@ -17,7 +17,7 @@ interface AgentAvatarProps {
   visualState: SimplifiedAgentVisualState;
   ambient: AmbientActivity | null;
   resting?: boolean;
-  /** World-space destination. The avatar routes itself there via the hallway. */
+  /** World-space destination. The robot routes itself there via the hallway. */
   target: [number, number, number];
   restFacingY: number;
   selected: boolean;
@@ -25,75 +25,34 @@ interface AgentAvatarProps {
   onFollow: () => void;
 }
 
-function hashString(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return h;
-}
-
-/** Hair variants keep teammates individual without a model library. */
-function Hair({ variant, color }: { variant: number; color: string }) {
-  if (variant === 0) {
-    return (
-      <mesh position={[0, 1.86, 0]} castShadow>
-        <sphereGeometry args={[0.21, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color={color} roughness={1} />
-      </mesh>
-    );
-  }
-  if (variant === 1) {
-    return (
-      <group>
-        <mesh position={[0, 1.87, -0.02]} castShadow>
-          <sphereGeometry args={[0.21, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
-          <meshStandardMaterial color={color} roughness={1} />
-        </mesh>
-        <mesh position={[0.12, 1.78, -0.1]} castShadow>
-          <boxGeometry args={[0.08, 0.16, 0.16]} />
-          <meshStandardMaterial color={color} roughness={1} />
-        </mesh>
-      </group>
-    );
-  }
-  return (
-    <group>
-      <mesh position={[0, 1.86, 0]} castShadow>
-        <sphereGeometry args={[0.21, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color={color} roughness={1} />
-      </mesh>
-      <mesh position={[0, 1.95, -0.16]} castShadow>
-        <sphereGeometry args={[0.09, 10, 10]} />
-        <meshStandardMaterial color={color} roughness={1} />
-      </mesh>
-    </group>
-  );
-}
+/** Constant glide speed in world units/s. Every robot moves at the same pace regardless of
+ * how far away its destination is -- distance-proportional lerp made far robots sprint and
+ * near robots crawl, which read as agents "not knowing what they're doing". */
+const GLIDE_SPEED = 3.4;
+/** Chassis hover height above the floor. */
+const HOVER_Y = 0.52;
 
 /**
- * Low-poly office person. Shirt colour = role tint; skin/hair are stable per agent id.
- * Position comes from walking a hallway waypoint route to the current destination; pose
- * comes from the simplified visual state. Ambient life is labelled and cosmetic only.
+ * Hover robot. Plating is neutral; the glowing visor is the single in-scene status surface
+ * (color = simplified visual state). Pose changes are minimal and mechanical: forward lean
+ * while gliding, manipulators raised at a desk, powered-down slump when resting.
  */
 export function AgentAvatar({ agent, visualState, ambient, resting = false, target, restFacingY, selected, onSelect, onFollow }: AgentAvatarProps) {
   const root = useRef<THREE.Group>(null);
-  const torso = useRef<THREE.Group>(null);
+  const body = useRef<THREE.Group>(null);
   const leftArm = useRef<THREE.Mesh>(null);
   const rightArm = useRef<THREE.Mesh>(null);
-  const leftLeg = useRef<THREE.Group>(null);
-  const rightLeg = useRef<THREE.Group>(null);
+  const ring = useRef<THREE.Mesh>(null);
   const beacon = useRef<THREE.Mesh>(null);
+  const visorMat = useRef<THREE.MeshStandardMaterial>(null);
 
   const pathRef = useRef<THREE.Vector3[]>([]);
   const legRef = useRef(0);
   // Mount position only -- after mount, useFrame owns position; a reactive
-  // position prop would snap the group to each new destination and skip the walk.
+  // position prop would snap the group to each new destination and skip the glide.
   const initialPosition = useRef<[number, number, number]>(target);
 
-  const shirt = agentBodyColor(agent.agentType, agent.externalAgentId);
-  const seedHash = hashString(agent.id);
-  const skin = PALETTE.skinTones[seedHash % PALETTE.skinTones.length]!;
-  const hairColor = PALETTE.hairColors[(seedHash >> 3) % PALETTE.hairColors.length]!;
-  const hairVariant = seedHash % 3;
+  const roleTint = agentBodyColor(agent.agentType, agent.externalAgentId);
   const isMain = agent.externalAgentId === 'main-claude' || agent.agentType === 'main-claude';
   const lane = useMemo(() => laneFor(agent.id), [agent.id]);
 
@@ -112,83 +71,77 @@ export function AgentAvatar({ agent, visualState, ambient, resting = false, targ
     if (!g) return;
     const t = clock.elapsedTime;
 
-    // walk the waypoint path
+    // Glide the waypoint path at constant speed.
     let moving = false;
     const path = pathRef.current;
     if (legRef.current < path.length) {
       const waypoint = path[legRef.current]!;
       const dist = g.position.distanceTo(waypoint);
-      if (dist < 0.15 && legRef.current < path.length - 1) legRef.current += 1;
-      if (dist > 0.08) {
+      const step = GLIDE_SPEED * delta;
+      if (dist <= step) {
+        g.position.copy(waypoint);
+        if (legRef.current < path.length - 1) moving = true;
+        legRef.current += 1;
+      } else {
         moving = true;
-        g.position.lerp(waypoint, Math.min(1, delta * 3.2));
-        const dir = waypoint.clone().sub(g.position);
-        if (dir.lengthSq() > 0.0001) {
-          g.rotation.y = dampAngle(g.rotation.y, Math.atan2(dir.x, dir.z), delta * 6);
-        }
+        const dir = waypoint.clone().sub(g.position).normalize();
+        g.position.addScaledVector(dir, step);
+        g.rotation.y = dampAngle(g.rotation.y, Math.atan2(dir.x, dir.z), delta * 8);
       }
     }
 
     if (!moving) {
-      if (resting) g.rotation.y = dampAngle(g.rotation.y, restFacingY, delta * 3);
-      else if (ambient) g.rotation.y = dampAngle(g.rotation.y, restFacingY + Math.sin(t * 0.8) * 0.35, delta * 3);
-      else g.rotation.y = dampAngle(g.rotation.y, restFacingY, delta * 5);
+      g.rotation.y = dampAngle(g.rotation.y, restFacingY, delta * 5);
     }
 
-    const seated = !moving && !resting && !ambient && (visualState === 'working' || visualState === 'checking');
-    const targetY = resting
-      ? -0.42 + Math.sin(t * 0.9) * 0.03
-      : seated ? -0.28
-      : ambient && !moving ? Math.sin(t * 1.6) * 0.05
-      : 0;
-    if (torso.current) {
-      torso.current.position.y = THREE.MathUtils.lerp(torso.current.position.y, targetY, Math.min(1, delta * 6));
-      if (visualState === 'completed' && !resting) torso.current.position.y = Math.abs(Math.sin(t * 6)) * 0.35;
-    }
-
-    // legs swing only while walking
-    if (leftLeg.current && rightLeg.current) {
-      const swing = moving ? Math.sin(t * 9) * 0.55 : 0;
-      leftLeg.current.rotation.x = THREE.MathUtils.lerp(leftLeg.current.rotation.x, swing, Math.min(1, delta * 8));
-      rightLeg.current.rotation.x = THREE.MathUtils.lerp(rightLeg.current.rotation.x, -swing, Math.min(1, delta * 8));
+    if (body.current) {
+      // Hover bob: calm at rest, firmer while gliding; resting settles toward the floor.
+      const bob = resting ? 0 : Math.sin(t * (moving ? 7 : 1.6) + g.position.x) * (moving ? 0.05 : 0.03);
+      const baseY = resting ? -0.34 : 0;
+      body.current.position.y = THREE.MathUtils.lerp(body.current.position.y, baseY + bob, Math.min(1, delta * 6));
+      if (visualState === 'completed' && !resting) body.current.position.y = Math.abs(Math.sin(t * 6)) * 0.3;
+      // Forward lean while gliding, upright otherwise.
+      body.current.rotation.x = THREE.MathUtils.lerp(body.current.rotation.x, moving ? 0.14 : 0, Math.min(1, delta * 6));
     }
 
     if (leftArm.current && rightArm.current) {
+      let l = 0;
+      let r = 0;
       if (moving) {
-        leftArm.current.rotation.x = -Math.sin(t * 9) * 0.45;
-        rightArm.current.rotation.x = Math.sin(t * 9) * 0.45;
+        l = 0.35; r = 0.35; // manipulators tucked back while gliding
       } else if (resting) {
-        leftArm.current.rotation.x = THREE.MathUtils.lerp(leftArm.current.rotation.x, 0.15, Math.min(1, delta * 4));
-        rightArm.current.rotation.x = THREE.MathUtils.lerp(rightArm.current.rotation.x, 0.15, Math.min(1, delta * 4));
-      } else if (ambient) {
-        const s = Math.sin(t * 1.4) * 0.2;
-        leftArm.current.rotation.x = -0.2 + s;
-        rightArm.current.rotation.x = -0.2 - s;
+        l = 0; r = 0;
       } else if (visualState === 'working') {
-        const typ = Math.sin(t * 9) * 0.15;
-        leftArm.current.rotation.x = -1.1 + typ;
-        rightArm.current.rotation.x = -1.1 - typ;
+        const typ = Math.sin(t * 9) * 0.12;
+        l = -1.05 + typ; r = -1.05 - typ; // at the console
       } else if (visualState === 'checking' || visualState === 'planning') {
-        leftArm.current.rotation.x = -0.4;
-        rightArm.current.rotation.x = -0.4;
+        l = -0.5; r = -0.5;
       } else if (visualState === 'completed') {
-        leftArm.current.rotation.x = -2.6;
-        rightArm.current.rotation.x = -2.6;
-      } else {
-        leftArm.current.rotation.x = THREE.MathUtils.lerp(leftArm.current.rotation.x, 0, delta * 5);
-        rightArm.current.rotation.x = THREE.MathUtils.lerp(rightArm.current.rotation.x, 0, delta * 5);
+        l = -2.4; r = -2.4;
       }
+      leftArm.current.rotation.x = THREE.MathUtils.lerp(leftArm.current.rotation.x, l, Math.min(1, delta * 7));
+      rightArm.current.rotation.x = THREE.MathUtils.lerp(rightArm.current.rotation.x, r, Math.min(1, delta * 7));
+    }
+
+    if (ring.current) {
+      ring.current.rotation.z = t * (moving ? 2.4 : 0.5);
+    }
+
+    if (visorMat.current) {
+      // Attention pulses; everything else holds a steady glow. Resting dims the optic.
+      const base = resting ? 0.15 : visualState === 'idle' ? 0.55 : 1.4;
+      visorMat.current.emissiveIntensity =
+        visualState === 'attention' && !resting ? 1.2 + Math.sin(t * 8) * 0.7 : base;
     }
 
     if (beacon.current) {
-      const on = visualState === 'attention';
+      const on = visualState === 'attention' && !resting;
       beacon.current.visible = on;
-      if (on) beacon.current.position.y = 2.05 + Math.sin(t * 4) * 0.08;
+      if (on) beacon.current.position.y = 2.15 + Math.sin(t * 4) * 0.08;
     }
   });
 
   const statusColor = STATE_COLOR[visualState];
-  const glow = resting ? 0.12 : 1;
 
   return (
     <group
@@ -197,78 +150,91 @@ export function AgentAvatar({ agent, visualState, ambient, resting = false, targ
       onClick={(e) => { e.stopPropagation(); onSelect(); }}
       onDoubleClick={(e) => { e.stopPropagation(); onFollow(); }}
     >
-      <group ref={torso}>
-        {/* legs: hip-pivot groups so they swing while walking */}
-        {[-0.13, 0.13].map((x, i) => (
-          <group key={x} ref={i === 0 ? leftLeg : rightLeg} position={[x, 0.72, 0]}>
-            <mesh position={[0, -0.28, 0]} castShadow>
-              <capsuleGeometry args={[0.09, 0.4, 4, 8]} />
-              <meshStandardMaterial color={PALETTE.pants} roughness={0.9} />
-            </mesh>
-            <mesh position={[0, -0.56, 0.06]} castShadow>
-              <boxGeometry args={[0.16, 0.1, 0.3]} />
-              <meshStandardMaterial color="#2f2a26" roughness={0.9} />
-            </mesh>
-          </group>
+      <group ref={body} scale={1.18}>
+        {/* hover ring: anti-grav skirt under the chassis */}
+        <mesh ref={ring} position={[0, HOVER_Y - 0.32, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.26, 0.045, 8, 24]} />
+          <meshStandardMaterial
+            color={PALETTE.robotDark}
+            emissive={statusColor}
+            emissiveIntensity={resting ? 0.05 : 0.35}
+          />
+        </mesh>
+
+        {/* chassis */}
+        <RoundedBox args={[0.56, 0.6, 0.38]} radius={0.09} smoothness={4} position={[0, HOVER_Y + 0.5, 0]} castShadow>
+          <meshStandardMaterial color={PALETTE.robotPlating} roughness={0.55} metalness={0.25} />
+        </RoundedBox>
+        {/* chest core: secondary status light */}
+        <mesh position={[0, HOVER_Y + 0.56, 0.2]}>
+          <cylinderGeometry args={[0.055, 0.055, 0.03, 12]} />
+          <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={resting ? 0.1 : 0.9} toneMapped={false} />
+        </mesh>
+        {/* shoulder markings: role tint */}
+        {[-0.31, 0.31].map((x) => (
+          <mesh key={x} position={[x, HOVER_Y + 0.72, 0]} castShadow>
+            <boxGeometry args={[0.1, 0.1, 0.3]} />
+            <meshStandardMaterial color={roleTint} roughness={0.6} />
+          </mesh>
         ))}
 
-        {/* shirt torso (role tint) */}
-        <RoundedBox args={[0.52, 0.62, 0.32]} radius={0.1} smoothness={4} position={[0, 1.12, 0]} castShadow>
-          <meshStandardMaterial color={shirt} roughness={0.9} />
+        {/* manipulators */}
+        <mesh ref={leftArm} position={[-0.36, HOVER_Y + 0.62, 0]} castShadow>
+          <capsuleGeometry args={[0.055, 0.3, 4, 8]} />
+          <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.7} metalness={0.3} />
+        </mesh>
+        <mesh ref={rightArm} position={[0.36, HOVER_Y + 0.62, 0]} castShadow>
+          <capsuleGeometry args={[0.055, 0.3, 4, 8]} />
+          <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.7} metalness={0.3} />
+        </mesh>
+
+        {/* neck + head */}
+        <mesh position={[0, HOVER_Y + 0.86, 0]}>
+          <cylinderGeometry args={[0.07, 0.09, 0.1, 10]} />
+          <meshStandardMaterial color={PALETTE.robotJoint} roughness={0.7} metalness={0.3} />
+        </mesh>
+        <RoundedBox args={[0.4, 0.3, 0.34]} radius={0.07} smoothness={4} position={[0, HOVER_Y + 1.06, 0]} castShadow>
+          <meshStandardMaterial color={PALETTE.robotPlating} roughness={0.55} metalness={0.25} />
         </RoundedBox>
-
-        {/* arms: shirt sleeve + skin hand */}
-        <mesh ref={leftArm} position={[-0.33, 1.28, 0]} castShadow>
-          <capsuleGeometry args={[0.06, 0.34, 4, 8]} />
-          <meshStandardMaterial color={shirt} roughness={0.9} />
-          <mesh position={[0, -0.26, 0]}>
-            <sphereGeometry args={[0.07, 10, 10]} />
-            <meshStandardMaterial color={skin} roughness={0.8} />
-          </mesh>
-        </mesh>
-        <mesh ref={rightArm} position={[0.33, 1.28, 0]} castShadow>
-          <capsuleGeometry args={[0.06, 0.34, 4, 8]} />
-          <meshStandardMaterial color={shirt} roughness={0.9} />
-          <mesh position={[0, -0.26, 0]}>
-            <sphereGeometry args={[0.07, 10, 10]} />
-            <meshStandardMaterial color={skin} roughness={0.8} />
-          </mesh>
-        </mesh>
-
-        {/* head + hair */}
-        <mesh position={[0, 1.68, 0]} castShadow>
-          <sphereGeometry args={[0.2, 14, 14]} />
-          <meshStandardMaterial color={skin} roughness={0.8} />
-        </mesh>
-        <Hair variant={hairVariant} color={hairColor} />
-
-        {/* status pin on the chest -- carries the live state colour */}
-        <mesh position={[0.16, 1.32, 0.17]}>
-          <sphereGeometry args={[0.045, 10, 10]} />
-          <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.9 * glow} toneMapped={false} />
+        {/* visor: the status surface */}
+        <mesh position={[0, HOVER_Y + 1.06, 0.16]}>
+          <boxGeometry args={[0.28, 0.1, 0.04]} />
+          <meshStandardMaterial
+            ref={visorMat}
+            color={PALETTE.visorBase}
+            emissive={statusColor}
+            emissiveIntensity={1.4}
+            toneMapped={false}
+          />
         </mesh>
 
         {isMain && (
-          <mesh position={[0, 2.0, 0]}>
-            <torusGeometry args={[0.14, 0.025, 8, 16]} />
-            <meshStandardMaterial color="#e8b23c" emissive="#e8b23c" emissiveIntensity={0.4} />
-          </mesh>
+          <group position={[0, HOVER_Y + 1.24, 0]}>
+            <mesh>
+              <cylinderGeometry args={[0.012, 0.012, 0.22, 6]} />
+              <meshStandardMaterial color={PALETTE.robotJoint} />
+            </mesh>
+            <mesh position={[0, 0.14, 0]}>
+              <sphereGeometry args={[0.035, 8, 8]} />
+              <meshStandardMaterial color={PALETTE.accent} emissive={PALETTE.accent} emissiveIntensity={0.9} toneMapped={false} />
+            </mesh>
+          </group>
         )}
       </group>
 
-      <mesh ref={beacon} position={[0, 2.05, 0]} visible={false}>
-        <octahedronGeometry args={[0.16, 0]} />
-        <meshStandardMaterial color={STATE_COLOR.attention} emissive={STATE_COLOR.attention} emissiveIntensity={1} />
+      <mesh ref={beacon} position={[0, 2.15, 0]} visible={false}>
+        <octahedronGeometry args={[0.14, 0]} />
+        <meshStandardMaterial color={STATE_COLOR.attention} emissive={STATE_COLOR.attention} emissiveIntensity={1.2} toneMapped={false} />
       </mesh>
 
       {selected && (
         <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.42, 0.54, 28]} />
-          <meshBasicMaterial color="#3aa0f0" />
+          <ringGeometry args={[0.42, 0.52, 28]} />
+          <meshBasicMaterial color={PALETTE.accent} />
         </mesh>
       )}
 
-      <AgentLabel name={agent.displayName} role={agent.role} state={visualState} ambientLabel={ambient?.label ?? null} resting={resting} selected={selected} />
+      <AgentLabel name={agent.displayName} selected={selected} />
     </group>
   );
 }

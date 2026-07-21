@@ -2,18 +2,18 @@
 
 import { PALETTE } from '../../lib/theme';
 
-/** Warm interior daylight for the Agent Lab. Roofless open-plan office viewed from a fixed
- * isometric angle -- an architectural model, not a game level. No textures. */
+/** Night-ops lighting: cool dim ambience so the emissive surfaces (visors, screens, lane
+ * strips) carry the scene. Fixed isometric view -- an instrument panel, not a game level. */
 export function CampusEnvironment() {
   return (
     <>
       <color attach="background" args={[PALETTE.sceneBackground]} />
-      <hemisphereLight args={['#fff6e8', '#c9c3b8', 0.85]} />
-      <ambientLight intensity={0.35} />
+      <hemisphereLight args={['#6b7789', '#232a36', 1.15]} />
+      <ambientLight intensity={0.6} />
       <directionalLight
         position={[40, 70, 40]}
-        intensity={1.15}
-        color="#fff3e2"
+        intensity={1.35}
+        color="#dfe6f0"
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
@@ -25,7 +25,7 @@ export function CampusEnvironment() {
         shadow-camera-bottom={-140}
         shadow-bias={-0.0004}
       />
-      <directionalLight position={[-50, 35, -40]} intensity={0.25} color="#cdd8e6" />
+      <directionalLight position={[-50, 35, -40]} intensity={0.3} color="#5a6e8c" />
     </>
   );
 }

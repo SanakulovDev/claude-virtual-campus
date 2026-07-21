@@ -37,39 +37,39 @@ function AddProjectPopover() {
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="rounded-lg border border-slate-200 bg-white/70 px-2.5 py-1.5 text-[12px] font-medium text-slate-600 hover:bg-slate-100"
+        className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-[12px] font-medium text-slate-300 hover:bg-white/10"
       >
         + Add project
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-1.5 w-72 rounded-xl border border-slate-200 bg-white p-3 text-slate-700 shadow-lg">
-          <p className="text-[12px] font-medium text-slate-800">Connect a project</p>
-          <p className="mt-1 text-[11px] text-slate-500">Paste the project&apos;s full path and connect it from here:</p>
+        <div className="panel-solid absolute right-0 top-full z-30 mt-1.5 w-72 rounded-lg border border-white/10 p-3 text-slate-300 shadow-xl">
+          <p className="text-[12px] font-medium text-slate-100">Connect a project</p>
+          <p className="mt-1 text-[11px] text-slate-400">Paste the project&apos;s full path and connect it from here:</p>
           <div className="mt-2 flex items-center gap-1.5">
             <input
               value={pathValue}
               onChange={(e) => setPathValue(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && connect()}
               placeholder="/Users/me/Developer/my-project"
-              className="min-w-0 flex-1 rounded-md border border-slate-300 px-2 py-1 text-[11px] text-slate-800 outline-none focus:border-sky-500"
+              className="min-w-0 flex-1 rounded-md border border-white/15 bg-black/30 px-2 py-1 font-mono text-[11px] text-slate-100 outline-none placeholder:text-slate-600 focus:border-accent"
               aria-label="Project path"
             />
             <button
               onClick={connect}
               disabled={status.kind === 'busy' || pathValue.trim() === ''}
-              className="rounded-md bg-sky-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+              className="rounded-md bg-accent px-2 py-1 text-[11px] font-medium text-ink hover:brightness-110 disabled:opacity-50"
             >
               {status.kind === 'busy' ? '…' : 'Connect'}
             </button>
           </div>
           {status.message && (
-            <p className={`mt-1.5 text-[10px] ${status.kind === 'error' ? 'text-rose-500' : 'text-emerald-600'}`}>{status.message}</p>
+            <p className={`mt-1.5 text-[10px] ${status.kind === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>{status.message}</p>
           )}
-          <div className="mt-2.5 border-t border-slate-100 pt-2">
-            <p className="text-[10px] text-slate-400">Or run it in a terminal, in any language:</p>
+          <div className="mt-2.5 border-t border-white/10 pt-2">
+            <p className="text-[10px] text-slate-500">Or run it in a terminal, in any language:</p>
             <div className="mt-1 flex items-center gap-1.5">
-              <code className="flex-1 rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-800">{CONNECT_COMMAND}</code>
-              <button onClick={copy} className="rounded-md border border-slate-300 px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-100">
+              <code className="flex-1 rounded-md bg-black/30 px-2 py-1 font-mono text-[11px] text-slate-200">{CONNECT_COMMAND}</code>
+              <button onClick={copy} className="rounded-md border border-white/15 px-2 py-1 text-[11px] text-slate-300 hover:bg-white/10">
                 {copied ? 'Copied' : 'Copy'}
               </button>
             </div>
@@ -81,20 +81,20 @@ function AddProjectPopover() {
 }
 
 const CONNECTION = {
-  connected: { color: '#12a150', label: 'Connected (Stable)' },
-  connecting: { color: '#c98a1e', label: 'Connecting…' },
-  disconnected: { color: '#d6483a', label: 'Disconnected' },
+  connected: { color: '#3ecf8e', label: 'Live' },
+  connecting: { color: '#f2b23c', label: 'Connecting…' },
+  disconnected: { color: '#ff5c47', label: 'Disconnected' },
 } as const;
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <span className="text-[13px] text-slate-500">
-      {label}: <span className="font-semibold text-slate-800 tabular-nums">{value}</span>
+    <span className="text-[12px] text-slate-400">
+      {label} <span className="font-mono font-semibold text-slate-100 tabular-nums">{value}</span>
     </span>
   );
 }
 
-/** Premium light top bar: brand, live connection, spelled-out counts, search, alerts. */
+/** Dark ops top bar: brand, live link status, counts, search, controls. */
 export function CampusTopBar() {
   const connectionStatus = useCampusStore((s) => s.connectionStatus);
   const projects = useCampusStore((s) => s.projects);
@@ -116,11 +116,11 @@ export function CampusTopBar() {
   const conn = CONNECTION[connectionStatus];
 
   return (
-    <header className="panel relative z-40 flex h-14 flex-none items-center justify-between border-b border-slate-200/80 px-3">
+    <header className="panel relative z-40 flex h-12 flex-none items-center justify-between border-b border-white/10 px-3">
       <div className="flex items-center gap-3">
         <button
           onClick={toggleDock}
-          className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-200/70 hover:text-slate-800"
+          className="rounded-md p-1.5 text-slate-400 hover:bg-white/10 hover:text-slate-100"
           aria-label="Toggle project dock"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -128,29 +128,26 @@ export function CampusTopBar() {
           </svg>
         </button>
         <span className="flex items-center gap-2">
-          <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-[#d97a4a] to-[#c9612e] text-white shadow-sm">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <span className="grid h-6 w-6 place-items-center rounded bg-accent text-ink">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
               <path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z" />
             </svg>
           </span>
-          <span className="text-[15px] font-semibold tracking-tight text-slate-900">Claude Virtual Campus</span>
+          <span className="font-mono text-[13px] font-semibold uppercase tracking-[0.14em] text-slate-100">Claude Virtual Campus</span>
         </span>
-        <span className="ml-1 flex items-center gap-1.5 text-[12px] font-medium text-slate-500">
-          <span className="relative inline-flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60" style={{ background: conn.color }} />
-            <span className="inline-flex h-2 w-2 rounded-full" style={{ background: conn.color }} />
-          </span>
+        <span className="ml-1 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-slate-400">
+          <span className="inline-flex h-1.5 w-1.5 rounded-full" style={{ background: conn.color }} />
           {conn.label}
         </span>
       </div>
 
-      <div className="hidden items-center gap-6 md:flex">
-        <Stat label="Active Projects" value={activeProjects} />
-        <Stat label="Total Agents" value={totalAgents} />
+      <div className="hidden items-center gap-5 md:flex">
+        <Stat label="Projects active" value={activeProjects} />
+        <Stat label="Agents" value={totalAgents} />
       </div>
 
-      <div className="flex items-center gap-2.5">
-        <label className="hidden items-center gap-2 rounded-lg border border-slate-200 bg-white/70 px-2.5 py-1.5 text-slate-400 focus-within:border-slate-300 lg:flex">
+      <div className="flex items-center gap-2">
+        <label className="hidden items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-slate-500 focus-within:border-white/25 lg:flex">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
             <circle cx="7" cy="7" r="4.5" />
             <path d="M10.5 10.5L14 14" strokeLinecap="round" />
@@ -159,7 +156,7 @@ export function CampusTopBar() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search"
-            className="w-28 bg-transparent text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none"
+            className="w-28 bg-transparent text-[13px] text-slate-200 placeholder:text-slate-500 focus:outline-none"
             aria-label="Search projects and agents"
           />
         </label>
@@ -169,10 +166,10 @@ export function CampusTopBar() {
         <button
           onClick={() => (restingCount > 0 ? wakeAllBots() : restAllIdle())}
           title="Cosmetic only: rests idle bots. Any real Claude activity wakes them instantly."
-          className={`rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
+          className={`rounded-md border px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
             restingCount > 0
-              ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-              : 'border-slate-200 bg-white/70 text-slate-500 hover:bg-slate-100'
+              ? 'border-indigo-400/40 bg-indigo-400/10 text-indigo-300'
+              : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
           }`}
         >
           {restingCount > 0 ? `Wake all (${restingCount})` : 'Rest idle bots'}
@@ -182,17 +179,17 @@ export function CampusTopBar() {
           onClick={toggleAmbientLife}
           aria-pressed={ambientLifeEnabled}
           title="Ambient idle life is cosmetic only and never counts as real Claude work"
-          className={`rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
+          className={`rounded-md border px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
             ambientLifeEnabled
-              ? 'border-amber-300 bg-amber-50 text-amber-700'
-              : 'border-slate-200 bg-white/70 text-slate-500 hover:bg-slate-100'
+              ? 'border-amber-400/40 bg-amber-400/10 text-amber-300'
+              : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
           }`}
         >
           Ambient life: {ambientLifeEnabled ? 'on' : 'off'}
         </button>
 
         <button
-          className="relative rounded-lg border border-slate-200 bg-white/70 p-1.5 text-slate-500 hover:bg-slate-100"
+          className="relative rounded-md border border-white/10 bg-white/5 p-1.5 text-slate-400 hover:bg-white/10"
           aria-label={pending > 0 ? `${pending} pending approvals` : 'Notifications'}
           onClick={returnToCampus}
         >
@@ -208,7 +205,7 @@ export function CampusTopBar() {
 
         <button
           onClick={returnToCampus}
-          className="rounded-lg bg-slate-900 px-3 py-1.5 text-[12px] font-medium text-white shadow-sm hover:bg-slate-800"
+          className="rounded-md bg-accent px-3 py-1.5 text-[12px] font-medium text-ink hover:brightness-110"
         >
           Campus Overview
         </button>

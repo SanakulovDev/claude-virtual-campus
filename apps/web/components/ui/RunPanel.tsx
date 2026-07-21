@@ -23,9 +23,9 @@ function RunEntry({ run }: { run: RunRow }) {
   // in an update-every-caller game.
   const style = STATUS_STYLE[run.status] ?? { bg: '#9aa3ad22', fg: '#9aa3ad', label: run.status };
   return (
-    <li className="rounded-md border border-slate-200 bg-white p-2">
+    <li className="rounded-md border border-white/10 bg-white/5 p-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="min-w-0 flex-1 truncate text-[11px] text-slate-700" title={run.prompt}>
+        <span className="min-w-0 flex-1 truncate text-[11px] text-slate-300" title={run.prompt}>
           {run.prompt}
         </span>
         <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: style.bg, color: style.fg }}>
@@ -34,19 +34,19 @@ function RunEntry({ run }: { run: RunRow }) {
         {(run.status === 'RUNNING' || run.status === 'QUEUED' || run.status === 'STARTING') && (
           <button
             onClick={() => void stopRun(run.id)}
-            className="rounded-md border border-rose-200 px-2 py-0.5 text-[10px] text-rose-600 hover:bg-rose-50"
+            className="rounded-md border border-rose-500/40 px-2 py-0.5 text-[10px] text-rose-300 hover:bg-rose-500/15"
           >
             Stop
           </button>
         )}
       </div>
       {run.resultText && (
-        <button onClick={() => setOpen(!open)} className="mt-1 text-[10px] text-slate-400 hover:text-slate-600">
+        <button onClick={() => setOpen(!open)} className="mt-1 text-[10px] text-slate-500 hover:text-slate-200">
           {open ? 'Hide result' : 'Show result'}
         </button>
       )}
       {open && run.resultText && (
-        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-2 text-[10px] text-slate-600">
+        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-black/30 p-2 font-mono text-[10px] text-slate-400">
           {run.resultText}
         </pre>
       )}
@@ -104,16 +104,16 @@ export function RunPanel({ projectId }: { projectId: string }) {
         onChange={(e) => setPrompt(e.target.value)}
         rows={2}
         placeholder="Give this team a task…"
-        className="w-full resize-none rounded-md border border-slate-300 bg-white p-2 text-xs text-slate-800 placeholder:text-slate-400"
+        className="w-full resize-none rounded-md border border-white/15 bg-black/30 p-2 text-xs text-slate-200 placeholder:text-slate-600"
       />
       <button
         onClick={() => void send()}
         disabled={busy || sending || prompt.trim().length === 0}
-        className="w-full rounded-md bg-slate-900 py-2 text-xs font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className="w-full rounded-md bg-accent py-2 text-xs font-medium text-ink hover:brightness-110 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500"
       >
         {busy ? 'A run is active for this project' : sending ? 'Starting…' : 'Send task'}
       </button>
-      {error && <p className="text-[11px] text-rose-600">{error}</p>}
+      {error && <p className="text-[11px] text-rose-400">{error}</p>}
       {runs.length > 0 && (
         <ul className="space-y-1.5">
           {runs.map((run) => (

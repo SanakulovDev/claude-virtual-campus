@@ -5,20 +5,20 @@
 html, body, #__next {
   height: 100%;
   margin: 0;
-  background: #eef1f5;
-  color: #1e2733;
+  background: #0e1116;
+  color: #dbe1e8;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Premium light chrome: frosted panels over the light 3D campus. */
+/* Night-ops chrome: dark glass panels over the dark 3D lab. */
 .panel {
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(14, 17, 22, 0.8);
   backdrop-filter: blur(14px) saturate(1.1);
   -webkit-backdrop-filter: blur(14px) saturate(1.1);
 }
 
 .panel-solid {
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(14, 17, 22, 0.94);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }

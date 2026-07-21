@@ -2,7 +2,7 @@
 
 import { useCampusStore } from '../../stores/campusStore';
 import { selectProjectVisualState, type ProjectVisualState } from '../../selectors/project-status.selector';
-import { STATE_COLOR, STATE_ICON, STATE_LABEL, projectAccent } from '../../lib/theme';
+import { STATE_COLOR, STATE_ICON, STATE_LABEL } from '../../lib/theme';
 
 const STATE_ORDER: Record<ProjectVisualState, number> = {
   attention: 0,
@@ -40,13 +40,13 @@ export function ProjectDock() {
   if (collapsed) return null;
 
   return (
-    <aside className="panel flex w-64 flex-none flex-col border-r border-slate-200/80">
-      <div className="px-4 pb-1.5 pt-3 text-[12px] font-semibold uppercase tracking-wide text-slate-400">My Projects</div>
+    <aside className="panel flex w-64 flex-none flex-col border-r border-white/10">
+      <div className="px-4 pb-1.5 pt-3 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Projects</div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         {list.length === 0 && (
-          <p className="px-4 py-4 text-xs leading-relaxed text-slate-400">
+          <p className="px-4 py-4 text-xs leading-relaxed text-slate-500">
             {query ? 'No matching projects.' : (
-              <>No projects yet. Run a Claude Code session with the hook installed, or <code className="rounded bg-slate-100 px-1">pnpm demo:events</code>.</>
+              <>No projects yet. Run a Claude Code session with the hook installed, or <code className="rounded bg-white/10 px-1 font-mono">pnpm demo:events</code>.</>
             )}
           </p>
         )}
@@ -61,22 +61,19 @@ export function ProjectDock() {
                 selectProject(project.id);
                 focusProject(project.id);
               }}
-              className={`mx-2 flex w-[calc(100%-1rem)] items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
-                selected ? 'bg-white shadow-sm ring-1 ring-slate-200' : 'hover:bg-white/60'
+              className={`mx-2 flex w-[calc(100%-1rem)] items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors ${
+                selected ? 'bg-white/10 ring-1 ring-white/15' : 'hover:bg-white/5'
               }`}
             >
-              <span
-                className="h-2.5 w-2.5 flex-none rounded-full"
-                style={{ background: STATE_COLOR[state], boxShadow: `0 0 0 3px ${projectAccent(project.projectKey)}22` }}
-              />
+              <span className="h-2 w-2 flex-none rounded-full" style={{ background: STATE_COLOR[state] }} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-medium text-slate-800">{project.name}</span>
+                <span className="block truncate font-mono text-[12px] font-medium text-slate-200">{project.name}</span>
                 <span className="text-[11px] text-slate-500">
-                  {n} Agent{n === 1 ? '' : 's'}, {STATE_LABEL[state]}
+                  {n} agent{n === 1 ? '' : 's'} · {STATE_LABEL[state]}
                 </span>
               </span>
               {hasAttention && (
-                <span className="flex-none rounded-full bg-rose-100 px-1.5 text-xs font-bold text-rose-600">
+                <span className="flex-none rounded bg-rose-500/15 px-1.5 font-mono text-xs font-bold text-rose-400">
                   {STATE_ICON.attention}
                 </span>
               )}

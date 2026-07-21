@@ -29,31 +29,31 @@ export function ContextTimeline() {
 
   if (entries.length === 0) return null;
 
-  const scopeLabel = scope === 'agent' ? 'Agent activity' : scope === 'project' ? 'Project activity' : 'Campus activity';
+  const scopeLabel = scope === 'agent' ? 'Agent log' : scope === 'project' ? 'Project log' : 'Lab log';
 
   return (
-    <div className="panel pointer-events-auto border-t border-slate-200/80">
+    <div className="panel pointer-events-auto border-t border-white/10">
       <div className="flex items-center gap-3 px-3 py-1.5">
-        <span className="flex-none text-[10px] font-semibold uppercase tracking-wide text-slate-400">{scopeLabel}</span>
+        <span className="flex-none font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-500">{scopeLabel}</span>
         {!expanded && (
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
             {entries.slice(0, 24).map((e) => (
-              <span key={e.id} className="flex-none rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+              <span key={e.id} className="flex-none rounded bg-white/5 px-2 py-0.5 font-mono text-[10px] text-slate-400">
                 {summarizeTimelineEntry(e)}
               </span>
             ))}
           </div>
         )}
-        <button onClick={toggle} className="ml-auto flex-none rounded px-2 py-0.5 text-[11px] text-slate-500 hover:bg-slate-100 hover:text-slate-800">
+        <button onClick={toggle} className="ml-auto flex-none rounded px-2 py-0.5 text-[11px] text-slate-400 hover:bg-white/10 hover:text-slate-100">
           {expanded ? 'Collapse' : 'Expand'}
         </button>
       </div>
       {expanded && (
         <ul className="max-h-48 overflow-y-auto px-3 pb-2">
           {entries.slice(0, 100).map((e) => (
-            <li key={e.id} className="flex justify-between border-b border-slate-100 py-1 text-[11px] text-slate-600">
+            <li key={e.id} className="flex justify-between border-b border-white/5 py-1 font-mono text-[11px] text-slate-400">
               <span>{summarizeTimelineEntry(e)}</span>
-              <span className="text-slate-400">{new Date(e.receivedAt).toLocaleTimeString()}</span>
+              <span className="text-slate-600">{new Date(e.receivedAt).toLocaleTimeString()}</span>
             </li>
           ))}
         </ul>

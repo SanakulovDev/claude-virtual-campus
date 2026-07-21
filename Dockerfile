@@ -3,8 +3,10 @@
 # "docker compose up just works", not for minimal size.
 FROM node:20-slim
 
-# openssl is required by Prisma's engine + migrate binaries
-RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
+# openssl is required by Prisma's engine + migrate binaries; git is required for project
+# identity resolution -- without it every git project answers "not a repo" and mints a
+# duplicate `path:` room next to the host-minted `remote:` one.
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates git \
   && rm -rf /var/lib/apt/lists/*
 
 RUN corepack enable

@@ -19,13 +19,13 @@ export function ApprovalDrawer() {
   return (
     <div className="pointer-events-auto absolute bottom-4 right-4 z-30 w-80 max-w-[88vw] space-y-2">
       {pending.map((a) => (
-        <div key={a.id} className="panel-solid rounded-xl border border-rose-200 p-3 shadow-xl ring-1 ring-rose-100">
+        <div key={a.id} className="panel-solid rounded-lg border border-rose-500/40 p-3 shadow-xl">
           <div className="flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-100 text-xs font-bold text-rose-600">!</span>
-            <span className="text-sm font-semibold text-rose-700">Approval needed</span>
-            <span className="ml-auto text-[11px] text-rose-400">{projects[a.projectId]?.name}</span>
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500/15 text-xs font-bold text-rose-400">!</span>
+            <span className="text-sm font-semibold text-rose-300">Approval needed</span>
+            <span className="ml-auto font-mono text-[11px] text-slate-500">{projects[a.projectId]?.name}</span>
           </div>
-          <p className="mt-1.5 break-words text-xs text-slate-600">{a.safeSummary}</p>
+          <p className="mt-1.5 break-words font-mono text-xs text-slate-300">{a.safeSummary}</p>
           <div className="mt-2.5 flex gap-2">
             <button onClick={() => resolve(a.id, 'allow')} className="flex-1 rounded-md bg-emerald-600 py-1.5 text-xs font-medium text-white hover:bg-emerald-500">
               Allow once

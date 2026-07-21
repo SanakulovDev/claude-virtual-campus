@@ -39,7 +39,9 @@ export function CampusScene() {
       orthographic
       camera={{ position: [60, 60, 60], zoom: 20, near: -200, far: 600 }}
       onPointerMissed={() => deselect()}
-      gl={{ antialias: true }}
+      // Dark palette hexes sit in the crushed end of linear space; exposure lifts the lab
+      // surfaces into view while toneMapped=false emissives (visors, strips) keep their punch.
+      gl={{ antialias: true, toneMappingExposure: 1.9 }}
     >
       <CampusEnvironment />
       <CampusCameraController />
