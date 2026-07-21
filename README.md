@@ -1,10 +1,11 @@
 # Claude Virtual Campus
 
-A living 3D office for your Claude Code projects.
+Mission control for your Claude Code projects.
 
-Every local project becomes its own glass-walled room on a floating campus island. Claude
-and its real subagents appear as named teammates — planning, coding, testing and reviewing
-in real time — under a clean, premium light UI with live analytics and a campus status bar.
+Every local project becomes a glass-partitioned bay in a dark ops lab. Claude and its real
+subagents appear as named robots — planning, working, checking and reviewing in real time.
+Each robot's lit visor carries its live status, and the fleet telemetry panel is derived
+from real hook events, never faked.
 
 ![Claude Virtual Campus](docs/images/campus-overview.png)
 
@@ -14,8 +15,8 @@ in real time — under a clean, premium light UI with live analytics and a campu
 
 ## What it is
 
-Open Claude Code inside any project, give it a task, and the campus lights up: it detects
-the project, gives it a room, and moves named 3D teammates as Claude actually works. It
+Open Claude Code inside any project, give it a task, and the lab lights up: it detects
+the project, gives it a bay, and moves named robot agents as Claude actually works. It
 works with **any** language — PHP, Python, Go, Rust, Java, .NET, Ruby, Node.js or anything
 else — because it watches Claude Code's hooks, not your build system. Nothing is scripted:
 every movement is driven by a real hook event.
@@ -24,17 +25,20 @@ every movement is driven by a real hook event.
 
 ## Key features
 
-- **A room per project.** Each local project you connect gets its own persistent studio.
-- **Real named teammates.** Main Claude plus the actual subagents Claude starts, each with
-  a readable name, a role and a short bio.
-- **Live 3D activity.** Agents plan, work, check and celebrate as hook events arrive.
-- **Ambient idle life.** Idle agents take coffee breaks and water plants — always clearly
-  labelled, never mistaken for real work.
+- **A bay per project.** Each local project you connect gets its own persistent bay.
+- **Real named agents.** Main Claude plus the actual subagents Claude starts, as robots
+  with name-only nameplates; role, bio and live state live in the inspector.
+- **Live 3D activity.** Robots glide between the planning table, their console and the
+  review wall as hook events arrive; the visor color is the status.
+- **Send tasks.** Give a bay a task from its inspector — a headless Claude run executes it
+  in that project directory (loopback-guarded; see Security).
+- **Standby, not theater.** Idle robots hold station. Optional ambient idle life exists but
+  is off by default, always labelled, never mistaken for real work.
 - **Approval flow.** Destructive commands pause the agent and ask for permission.
-- **Premium campus UI.** Light isometric world, per-project rooms, live agent-utilization
-  analytics and an at-a-glance campus status — all derived from real state, never faked.
+- **Night-ops UI.** Dark isometric lab, per-project bays, live fleet telemetry and an
+  at-a-glance status pill — all derived from real state, never faked.
 - **Language-agnostic.** Zero assumptions about frameworks, package managers or `src/`.
-- **Local-first & safe.** Observes hooks; never executes your code.
+- **Local-first & safe.** Observes hooks; never executes code it merely observes.
 
 ## 60-second quick start
 
@@ -93,12 +97,31 @@ Postgres, API and web — in containers:
 docker compose up -d --build
 ```
 
-- Web: **http://localhost:3100**
+- Web: **http://localhost:3200**
 - API: **http://localhost:4000**
 
 The API container applies database migrations on start, and all three services use
-`restart: unless-stopped`, so the campus comes back automatically after a reboot. Manage it
-with the usual commands:
+`restart: unless-stopped`, so the campus comes back automatically after a reboot. Every
+port is published on `127.0.0.1` only — nothing is reachable from the LAN. Your home
+directory is mounted into the API container so project identity resolves exactly as on the
+host (same git repos, same paths).
+
+**Sending tasks from the dockerized stack** needs credentials the macOS keychain can't
+provide to a container. Generate a long-lived token once (free, uses your existing
+subscription login) and put it in `.env`:
+
+```bash
+claude setup-token                       # browser login, prints a token
+echo 'CLAUDE_CODE_OAUTH_TOKEN=<token>' >> .env
+docker compose up -d api
+```
+
+Without the token the dashboard works fully; only "Send task" runs fail (honestly, as
+`FAILED — Not logged in`). Prefer zero setup? Use the host stack (`pnpm dev`, port 3100):
+runs then spawn your local `claude` with its normal credentials. Run one stack at a time —
+they share port 4000.
+
+Manage the containers with the usual commands:
 
 ```bash
 docker compose ps          # status
@@ -197,7 +220,9 @@ the generated name. Raw ids stay tucked inside the collapsed **Developer details
 
 Roles the campus recognizes include Planner, Researcher, Implementation Engineer, Frontend
 / Backend / Database Engineer, QA Engineer, Reviewer, Security Reviewer, DevOps Engineer and
-Documentation Agent — each with its own accessory on the avatar.
+Documentation Agent — the role shows as colored shoulder markings on the robot (main Claude
+wears the copper antenna). In-scene nameplates stay name-only; everything else is in the
+inspector.
 
 ### Optional team roster
 
@@ -217,24 +242,20 @@ Pre-label the teammates a project will start with `<project>/.claude/campus.json
 This controls presentation only — it grants no permissions and creates no working agents.
 Scaffold a starter file by running `campus team` inside the project.
 
-## Idle campus life
+## Standby and ambient life
 
-When an agent has no real task, it may do something human — a coffee break, watering the
-plants, a game of chess, a visit to the campus plaza. Ambient life is always clearly
-labelled and kept separate from real work:
+An idle robot holds station at its console — dim visor, steady hover. That's the default:
+a serious lab, no theater. Two optional cosmetic layers exist on top:
 
-![Idle agents doing ambient activities](docs/images/idle-campus-life.png)
+![Idle robots on standby](docs/images/idle-campus-life.png)
 
-- Ambient life starts **only** while an agent is genuinely idle and stops the instant a real
-  event arrives.
-- It never creates Claude events, tool calls, tasks or transcripts, and social animation is
-  never presented as real agent communication.
-- It is frozen while an approval is pending or an agent needs attention.
-- You can turn it off from the top bar ("Ambient life"), and it respects your OS
-  reduced-motion setting.
-
-Real work reads as **"Jarvis is editing the billing service — Real Claude activity"**;
-ambient life reads as **"Lucy is taking a coffee break — Ambient activity"**.
+- **Rest** ("Rest idle bots" in the top bar) powers idle robots down in place; any real
+  Claude activity wakes them instantly.
+- **Ambient life** (top-bar toggle, **off by default**) lets genuinely idle robots wander
+  the lab. It starts only while an agent is idle, stops the instant a real event arrives,
+  never creates Claude events or tasks, is frozen while an approval is pending, and
+  respects your OS reduced-motion setting. In the inspector it is always labelled as
+  ambient, never as real work.
 
 ## Architecture
 
@@ -249,10 +270,15 @@ module boundaries are in [docs/architecture.md](docs/architecture.md).
 
 ## Security
 
-The campus observes hooks and **never executes your code**. Secrets are redacted before
-anything is stored or shown, the API is local-only, destructive commands route through an
-approval flow that defaults to **deny** on timeout, and the hooks fail open so Claude Code
-keeps working if the campus is down. See [docs/security.md](docs/security.md).
+The campus observes hooks and **never executes code it observes**. Secrets are redacted
+before anything is stored or shown, the API is local-only, destructive commands route
+through an approval flow that defaults to **deny** on timeout, and the hooks fail open so
+Claude Code keeps working if the campus is down.
+
+The one thing that *does* execute code — the "Send task" runs endpoint — is refused on
+non-loopback binds unless `RUNS_ALLOW_NONLOOPBACK=1`. Only docker-compose.yml sets that,
+and it may because it also publishes every port on `127.0.0.1`: "reachable" still means
+"this machine". See [docs/security.md](docs/security.md).
 
 ## Troubleshooting
 
@@ -260,6 +286,9 @@ keeps working if the campus is down. See [docs/security.md](docs/security.md).
 |---|---|
 | Project does not appear | run `campus install` in it (or `pnpm campus:install <path>`), then run `claude`; check `curl http://localhost:4000/api/health` |
 | Only Claude appears | The task started no subagents — use the multi-agent prompt above |
+| `runs are disabled on non-loopback binds` | Interactive runs need loopback: use the host stack (`pnpm dev`), or the Docker stack with `CLAUDE_CODE_OAUTH_TOKEN` set (see the Docker section) |
+| Send task fails `Not logged in` | Container has no credentials — `claude setup-token`, add it to `.env`, `docker compose up -d api` |
+| CORS errors in devtools | Open the URL your stack actually serves (host `:3100`, Docker `:3200`); `CORS_ORIGIN` accepts a comma-separated list of allowed origins |
 | Database unavailable | `pnpm db:up && pnpm db:migrate` |
 | Campus offline | Claude Code keeps working; hooks fail open |
 
@@ -273,7 +302,7 @@ pnpm lint           # eslint across all workspaces
 pnpm typecheck      # tsc --noEmit across all workspaces
 pnpm test           # unit + integration tests (needs the database up)
 pnpm build          # production build
-pnpm test:e2e       # full-stack smoke test
+pnpm test:e2e       # full-stack smoke test (stop `pnpm dev` / `docker compose stop api web` first)
 pnpm screenshots    # regenerate docs/images/*.png from a real browser
 ```
 
@@ -284,5 +313,5 @@ Hooks and the hook-event mapping: [docs/hooks.md](docs/hooks.md).
 
 - Per-module room splitting (modules currently share the repo's room).
 - Broader command-classifier coverage as new tools come up.
-- Richer ambient animations and agents physically visiting shared campus areas.
+- Richer robot idle animations for the optional ambient layer.
 - Visual regression testing for the 3D scene.

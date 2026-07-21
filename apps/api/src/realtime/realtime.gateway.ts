@@ -10,10 +10,9 @@ import type { Server, Socket } from 'socket.io';
 import { SOCKET_EVENTS, projectRoom, sessionRoom } from '@campus/contracts';
 import { PrismaService } from '../prisma/prisma.service';
 import { buildBootstrapSnapshot } from './bootstrap';
+import { resolveCorsOrigins } from '../config/api-host';
 
-const CORS_ORIGIN = process.env.CORS_ORIGIN ?? 'http://localhost:3000';
-
-@WebSocketGateway({ cors: { origin: CORS_ORIGIN }, namespace: '/' })
+@WebSocketGateway({ cors: { origin: resolveCorsOrigins() }, namespace: '/' })
 export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
   private readonly logger = new Logger(RealtimeGateway.name);
 

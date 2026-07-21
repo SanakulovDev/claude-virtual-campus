@@ -12,7 +12,10 @@ export function buildRunEnv(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const allowExact = new Set([...EXACT, ...extra]);
   const out: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(source)) {
-    if (value === undefined) continue;
+    // Empty strings are dropped too: compose-style `${VAR:-}` passthrough mints "" for
+    // unset vars, and an empty ANTHROPIC_API_KEY/CLAUDE_CODE_OAUTH_TOKEN reads as "auth
+    // configured but blank" to the CLI instead of falling back to its own credentials.
+    if (value === undefined || value === '') continue;
     if (allowExact.has(key) || PREFIXES.some((p) => key.startsWith(p))) out[key] = value;
   }
   return out;

@@ -6,7 +6,7 @@ import { SOCKET_EVENTS } from '@campus/contracts';
 import { redactSensitiveData } from '@campus/event-normalizer';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
-import { isLoopbackHost, resolveApiHost } from '../config/api-host';
+import { allowNonLoopbackRuns, isLoopbackHost, resolveApiHost } from '../config/api-host';
 import { buildRunEnv } from './run-env';
 import { parseStreamLine, clampPayload, extractOutcome, extractSessionId, type RunOutcome } from './stream-parser';
 import { selectClaimable } from './scheduler';
@@ -51,6 +51,7 @@ export class RunsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private assertLoopback() {
+    if (allowNonLoopbackRuns()) return;
     if (!isLoopbackHost(resolveApiHost())) {
       throw new ForbiddenException('runs are disabled on non-loopback binds');
     }

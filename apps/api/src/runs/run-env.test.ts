@@ -22,4 +22,11 @@ describe('buildRunEnv', () => {
     const env = buildRunEnv({ MY_EXTRA: 'v', RUN_ENV_ALLOWLIST: 'MY_EXTRA' });
     expect(env.MY_EXTRA).toBe('v');
   });
+
+  it('drops empty strings so ${VAR:-} compose passthrough never blanks CLI auth', () => {
+    const env = buildRunEnv({ CLAUDE_CODE_OAUTH_TOKEN: '', ANTHROPIC_API_KEY: '', PATH: '/usr/bin' });
+    expect(env.CLAUDE_CODE_OAUTH_TOKEN).toBeUndefined();
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(env.PATH).toBe('/usr/bin');
+  });
 });

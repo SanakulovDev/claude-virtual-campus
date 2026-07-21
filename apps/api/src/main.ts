@@ -10,7 +10,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { SessionsService } from './sessions/sessions.service';
-import { isLoopbackHost, resolveApiHost } from './config/api-host';
+import { isLoopbackHost, resolveApiHost, resolveCorsOrigins } from './config/api-host';
 
 const MAX_JSON_BODY_BYTES = '512kb';
 
@@ -27,7 +27,7 @@ async function bootstrap() {
     return res.status(403).json({ message: 'requests must be addressed to localhost' });
   });
 
-  app.enableCors({ origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000' });
+  app.enableCors({ origin: resolveCorsOrigins() });
 
   await app.get(SessionsService).markStaleSessionsDisconnected();
 

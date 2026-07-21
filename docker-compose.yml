@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: campus
       POSTGRES_DB: campus
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - campus_pg_data:/var/lib/postgresql/data
     healthcheck:
@@ -27,9 +27,17 @@ services:
       DATABASE_URL: postgresql://campus:campus@postgres:5432/campus?schema=public
       API_PORT: "4000"
       API_HOST: 0.0.0.0
-      CORS_ORIGIN: http://localhost:3200
+      CORS_ORIGIN: http://localhost:3200,http://127.0.0.1:3200
+      # Runs opt-in: safe ONLY because every published port below binds to 127.0.0.1,
+      # so "reachable" still means "this machine". Widen the port binds -> remove this.
+      RUNS_ALLOW_NONLOOPBACK: "1"
+      # Headless auth for spawned claude processes. Generate once with `claude setup-token`
+      # on the host and export it; empty values are dropped before reaching the CLI.
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      # Spawned runs read/write the host's ~/.claude (settings, projects) via the mount.
+      CLAUDE_CONFIG_DIR: ${HOME}/.claude
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4000:4000"
     volumes:
       # Host projects must be visible at their host paths: identity is resolved by running
       # git in the event's cwd, so an invisible path mints a duplicate `path:` room for
@@ -46,7 +54,7 @@ services:
     restart: unless-stopped
     command: pnpm --filter @campus/web exec next start -p 3200 -H 0.0.0.0
     ports:
-      - "3200:3200"
+      - "127.0.0.1:3200:3200"
     depends_on:
       - api
 

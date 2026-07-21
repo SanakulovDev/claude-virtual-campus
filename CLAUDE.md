@@ -82,6 +82,13 @@ can clobber it.
   classified as `destructive` and always route through the approval flow; the approval
   hook defaults to **deny** on timeout, never allow.
 - API binds to `127.0.0.1` by default; CORS is restricted to `CORS_ORIGIN`.
+- Runs (headless `claude` spawns) are refused on non-loopback binds unless
+  `RUNS_ALLOW_NONLOOPBACK=1`. docker-compose.yml sets it and is the only place that may:
+  it also publishes every port on `127.0.0.1`, so "reachable" still means "this machine".
+  In-container runs authenticate via `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`,
+  free with an existing subscription); without it, use the host stack (`pnpm dev`) for
+  interactive runs -- host `claude` uses the macOS keychain, which never crosses into
+  containers.
 
 ## Event pipeline
 

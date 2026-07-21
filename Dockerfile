@@ -10,6 +10,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-cert
   && rm -rf /var/lib/apt/lists/*
 
 RUN corepack enable
+
+# claude CLI so the runs endpoint can spawn headless sessions inside the container.
+# Auth comes from CLAUDE_CODE_OAUTH_TOKEN (see docker-compose.yml) -- macOS keychain
+# credentials never cross the container boundary.
+RUN npm install -g @anthropic-ai/claude-code
+
 WORKDIR /app
 
 COPY . .
