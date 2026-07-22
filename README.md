@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/logo.svg" width="112" alt="Claude Virtual Campus — a robot head with a glowing copper visor" />
+</p>
+
 # Claude Virtual Campus
 
 Mission control for your Claude Code projects.

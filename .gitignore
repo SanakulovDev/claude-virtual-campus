@@ -40,3 +40,4 @@ dist/
 
 # transient browser-smoke diagnostics
 artifacts/redesign/failure.png
+.playwright-mcp/

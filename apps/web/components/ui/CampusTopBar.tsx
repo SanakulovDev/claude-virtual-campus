@@ -128,11 +128,15 @@ export function CampusTopBar() {
           </svg>
         </button>
         <span className="flex items-center gap-2">
-          <span className="grid h-6 w-6 place-items-center rounded bg-accent text-ink">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-              <path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z" />
-            </svg>
-          </span>
+          <svg width="24" height="24" viewBox="0 0 256 256" aria-hidden>
+            <rect x="122" y="34" width="12" height="34" rx="6" fill="#3d434e" />
+            <circle cx="128" cy="28" r="12" fill="#e0784a" />
+            <rect x="30" y="112" width="16" height="48" rx="8" fill="#3d434e" />
+            <rect x="210" y="112" width="16" height="48" rx="8" fill="#3d434e" />
+            <rect x="46" y="64" width="164" height="144" rx="32" fill="#ccd1d9" stroke="#2a2f38" strokeWidth="8" />
+            <rect x="74" y="112" width="108" height="44" rx="22" fill="#0b0e13" />
+            <rect x="86" y="124" width="84" height="20" rx="10" fill="#e0784a" />
+          </svg>
           <span className="font-mono text-[13px] font-semibold uppercase tracking-[0.14em] text-slate-100">Claude Virtual Campus</span>
         </span>
         <span className="ml-1 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-slate-400">
